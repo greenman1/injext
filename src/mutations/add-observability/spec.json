@@ -1,0 +1,49 @@
+{
+  "id": "add-observability",
+  "version": "0.1.0",
+  "description": "Adds /health, /metrics, and /version endpoints plus request logging middleware",
+  "files": [
+    {
+      "path": "{{serverDir}}/observability.routes.ts",
+      "template": "observability.routes.ts.hbs"
+    },
+    {
+      "path": "{{serverDir}}/observability.middleware.ts",
+      "template": "observability.middleware.ts.hbs"
+    }
+  ],
+  "file_injections": [
+    {
+      "when": "replit-fullstack",
+      "type": "insert_before",
+      "file": "{{serverDir}}/routes.ts",
+      "pattern": "^import",
+      "template": "observability-middleware-import.ts.hbs",
+      "guard": "observability.middleware"
+    },
+    {
+      "when": "replit-fullstack",
+      "type": "insert_before",
+      "file": "{{serverDir}}/routes.ts",
+      "pattern": "return httpServer",
+      "template": "observability-middleware-use.ts.hbs",
+      "guard": "requestLogger"
+    }
+  ],
+  "dependencies": [],
+  "env": [],
+  "entry_injection": [
+    {
+      "when": "replit-fullstack",
+      "type": "replit_routes",
+      "mount": "/api",
+      "import": "./observability.routes",
+      "targetFile": "{{serverDir}}/routes.ts"
+    },
+    {
+      "type": "express_router",
+      "mount": "/",
+      "import": "./observability.routes"
+    }
+  ]
+}

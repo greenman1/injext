@@ -1,0 +1,85 @@
+import { Router, Request, Response } from 'express';
+import Stripe from 'stripe';
+import { createWebhookRouter } from './billing.webhook';
+
+const router = Router();
+
+const stripeKey = process.env.STRIPE_SECRET_KEY;
+if (!stripeKey) {
+  console.error('[billing] STRIPE_SECRET_KEY not set — billing endpoints will fail');
+}
+
+const stripe = new Stripe(stripeKey ?? 'not_configured', { apiVersion: '2024-06-20' });
+
+// In-memory subscription store
+const subscriptions = new Map<string, { status: string; customerId: string; subscriptionId?: string }>();
+
+async function onSubscriptionChange(customerId: string, status: string, subscriptionId: string): Promise<void> {
+  subscriptions.set(customerId, { status, customerId, subscriptionId });
+}
+
+// ─── Webhook ──────────────────────────────────────────────────────────────────
+
+router.use('/webhook', createWebhookRouter(stripe, onSubscriptionChange));
+
+// ─── POST /checkout-session ───────────────────────────────────────────────────
+
+router.post('/checkout-session', async (req: Request, res: Response) => {
+  try {
+    const priceId = (req.body as any)?.priceId ?? process.env.STRIPE_PRICE_ID;
+    if (!priceId) {
+      res.status(400).json({ error: 'priceId or STRIPE_PRICE_ID env var required' });
+      return;
+    }
+
+    const origin = req.headers.origin ?? `${req.protocol}://${req.headers.host}`;
+
+    const session = await stripe.checkout.sessions.create({
+      mode: 'subscription',
+      payment_method_types: ['card'],
+      line_items: [{ price: priceId, quantity: 1 }],
+      success_url: `${origin}/billing?success=1`,
+      cancel_url: `${origin}/billing?cancelled=1`,
+    });
+
+    res.json({ url: session.url });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? 'Failed to create checkout session' });
+  }
+});
+
+// ─── POST /portal ─────────────────────────────────────────────────────────────
+
+router.post('/portal', async (req: Request, res: Response) => {
+  try {
+    const customerId = (req.body as any)?.customerId;
+    if (!customerId) {
+      res.status(400).json({ error: 'customerId required' });
+      return;
+    }
+
+    const origin = req.headers.origin ?? `${req.protocol}://${req.headers.host}`;
+    const session = await stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: `${origin}/billing`,
+    });
+
+    res.json({ url: session.url });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? 'Failed to create portal session' });
+  }
+});
+
+// ─── GET /subscription ────────────────────────────────────────────────────────
+
+router.get('/subscription', (req: Request, res: Response) => {
+  const customerId = req.query.customerId as string;
+  if (!customerId) {
+    res.json({ status: 'none' });
+    return;
+  }
+  const sub = subscriptions.get(customerId);
+  res.json(sub ?? { status: 'none' });
+});
+
+export default router;

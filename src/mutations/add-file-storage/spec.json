@@ -1,0 +1,56 @@
+{
+  "id": "add-file-storage",
+  "version": "0.1.0",
+  "description": "Adds file upload via multer with local disk storage, validation, and serve endpoint",
+  "files": [
+    {
+      "path": "{{serverDir}}/storage.routes.ts",
+      "template": "storage.routes.replit.ts.hbs",
+      "when": "replit-fullstack"
+    },
+    {
+      "path": "{{serverDir}}/storage.routes.ts",
+      "template": "storage.routes.ts.hbs",
+      "when": "express"
+    }
+  ],
+  "file_injections": [
+    {
+      "when": "replit-fullstack",
+      "type": "insert_before",
+      "file": "{{sharedDir}}/schema.ts",
+      "pattern": "^import",
+      "template": "schema.storage-imports.ts.hbs",
+      "guard": "stackmod:add-file-storage-import"
+    },
+    {
+      "when": "replit-fullstack",
+      "type": "append",
+      "file": "{{sharedDir}}/schema.ts",
+      "template": "schema.storage.append.ts.hbs",
+      "guard": "stackmod:add-file-storage"
+    }
+  ],
+  "dependencies": [
+    "multer",
+    "@types/multer"
+  ],
+  "env": [
+    "UPLOAD_DIR",
+    "MAX_FILE_SIZE"
+  ],
+  "entry_injection": [
+    {
+      "when": "replit-fullstack",
+      "type": "replit_routes",
+      "mount": "/api/files",
+      "import": "./storage.routes",
+      "targetFile": "{{serverDir}}/routes.ts"
+    },
+    {
+      "type": "express_router",
+      "mount": "/files",
+      "import": "./storage.routes"
+    }
+  ]
+}

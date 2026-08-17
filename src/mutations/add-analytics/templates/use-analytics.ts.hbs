@@ -1,0 +1,74 @@
+import { useState, useEffect, useCallback } from 'react';
+
+// ─── Session ID ───────────────────────────────────────────────────────────────
+
+function getSessionId(): string {
+  let id = sessionStorage.getItem('analytics_session');
+  if (!id) {
+    id = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    sessionStorage.setItem('analytics_session', id);
+  }
+  return id;
+}
+
+// ─── track ────────────────────────────────────────────────────────────────────
+
+export function track(name: string, properties?: Record<string, unknown>): void {
+  const token = localStorage.getItem('auth_token');
+  fetch('/api/analytics/event', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ name, properties, sessionId: getSessionId() }),
+  }).catch(() => { /* fire and forget */ });
+}
+
+// ─── useEventSummary ─────────────────────────────────────────────────────────
+
+export interface EventSummary {
+  name: string;
+  count: number;
+}
+
+export function useEventSummary() {
+  const [data, setData] = useState<EventSummary[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const refresh = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch('/api/analytics/summary');
+      if (res.ok) setData(await res.json());
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { refresh(); }, [refresh]);
+  return { data, isLoading, refresh };
+}
+
+// ─── useDailyTrend ────────────────────────────────────────────────────────────
+
+export interface DailyCount {
+  date: string;
+  count: number;
+}
+
+export function useDailyTrend() {
+  const [data, setData] = useState<DailyCount[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    setIsLoading(true);
+    fetch('/api/analytics/daily')
+      .then(r => r.json())
+      .then(setData)
+      .catch(() => {})
+      .finally(() => setIsLoading(false));
+  }, []);
+
+  return { data, isLoading };
+}

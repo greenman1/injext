@@ -1,0 +1,46 @@
+// ─── Email Templates ──────────────────────────────────────────────────────────
+// Add or customize templates here. Each function returns {subject, html}.
+
+export interface EmailTemplate {
+  subject: string;
+  html: string;
+}
+
+export function welcomeEmail(name: string): EmailTemplate {
+  return {
+    subject: `Welcome, ${name}!`,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h1>Welcome, ${name}!</h1>
+        <p>Thanks for joining. We're excited to have you.</p>
+        <p>If you have any questions, just reply to this email.</p>
+      </div>
+    `,
+  };
+}
+
+export function passwordResetEmail(name: string, resetLink: string): EmailTemplate {
+  return {
+    subject: 'Reset your password',
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>Password Reset</h2>
+        <p>Hi ${name}, we received a request to reset your password.</p>
+        <p><a href="${resetLink}" style="background:#0070f3;color:#fff;padding:10px 20px;border-radius:4px;text-decoration:none;">Reset Password</a></p>
+        <p>This link expires in 1 hour. If you didn't request this, ignore this email.</p>
+      </div>
+    `,
+  };
+}
+
+export function genericNotificationEmail(subject: string, body: string): EmailTemplate {
+  return {
+    subject,
+    html: `
+      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2>${subject}</h2>
+        <p>${body}</p>
+      </div>
+    `,
+  };
+}

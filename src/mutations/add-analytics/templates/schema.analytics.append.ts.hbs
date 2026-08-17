@@ -1,0 +1,15 @@
+
+// ─── Analytics: analytics_events table ───────────────────────────────────────
+// Added by StackMod add-analytics — stackmod:add-analytics
+
+export const analyticsEvents = pgTable('analytics_events', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull(),
+  properties: text('properties'), // JSON.stringify'd object
+  userId: text('user_id'),
+  sessionId: text('session_id'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export type AnalyticsEvent = typeof analyticsEvents.$inferSelect;
+export type InsertAnalyticsEvent = typeof analyticsEvents.$inferInsert;

@@ -1,0 +1,53 @@
+import crypto from 'crypto';
+import { Request, Response, NextFunction } from 'express';
+
+// ─── API Key Middleware ───────────────────────────────────────────────────────
+// Use validateApiKey as a drop-in alternative to requireAuth on any route.
+// Reads the X-API-Key header, hashes it, and looks it up.
+//
+// Example usage:
+//   import { validateApiKey } from './apikeys.middleware';
+//   router.get('/data', validateApiKey, handler);
+
+export interface ApiKeyPayload {
+  id: number;
+  userId: number | null;
+  name: string;
+}
+
+declare global {
+  namespace Express {
+    interface Request {
+      apiKey?: ApiKeyPayload;
+    }
+  }
+}
+
+function hashKey(rawKey: string): string {
+  return crypto.createHash('sha256').update(rawKey).digest('hex');
+}
+
+// In-memory store for express template (shared with apikeys.routes.ts)
+export const apiKeyStore = new Map<string, { id: number; userId: number | null; name: string; revokedAt: Date | null }>();
+
+export function validateApiKey(req: Request, res: Response, next: NextFunction): void {
+  const rawKey = req.headers['x-api-key'] as string | undefined;
+
+  if (!rawKey) {
+    res.status(401).json({ error: 'Missing X-API-Key header' });
+    return;
+  }
+
+  const hash = hashKey(rawKey);
+  const record = apiKeyStore.get(hash);
+
+  if (!record || record.revokedAt) {
+    res.status(401).json({ error: 'Invalid or revoked API key' });
+    return;
+  }
+
+  req.apiKey = { id: record.id, userId: record.userId, name: record.name };
+  next();
+}
+
+export { hashKey };

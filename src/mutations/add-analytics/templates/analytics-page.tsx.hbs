@@ -1,0 +1,99 @@
+import { useEffect, useState } from 'react';
+import { useEventSummary, useDailyTrend, track } from '@/hooks/use-analytics';
+
+export default function AnalyticsPage() {
+  const { data: summary, isLoading: summaryLoading } = useEventSummary();
+  const { data: daily, isLoading: dailyLoading } = useDailyTrend();
+  const [recentEvents, setRecentEvents] = useState<any[]>([]);
+
+  useEffect(() => {
+    track('page_view', { page: 'analytics' });
+    fetch('/api/analytics/events')
+      .then(r => r.json())
+      .then(setRecentEvents)
+      .catch(() => {});
+  }, []);
+
+  const maxCount = summary.reduce((m, e) => Math.max(m, e.count), 1);
+
+  return (
+    <div className="max-w-4xl mx-auto p-6 space-y-8">
+      <h1 className="text-2xl font-bold">Analytics</h1>
+
+      {/* Event Summary */}
+      <section>
+        <h2 className="text-lg font-semibold mb-3">Event Counts</h2>
+        {summaryLoading ? (
+          <p className="text-muted-foreground">Loading…</p>
+        ) : summary.length === 0 ? (
+          <p className="text-muted-foreground">No events recorded yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {summary.map(({ name, count }) => (
+              <div key={name} className="flex items-center gap-3">
+                <span className="w-40 text-sm truncate">{name}</span>
+                <div className="flex-1 bg-muted rounded h-5 overflow-hidden">
+                  <div
+                    className="bg-primary h-full rounded"
+                    style={{ width: `${Math.round((count / maxCount) * 100)}%` }}
+                  />
+                </div>
+                <span className="text-sm tabular-nums w-10 text-right">{count}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Daily Trend */}
+      <section>
+        <h2 className="text-lg font-semibold mb-3">Daily Events (Last 30 Days)</h2>
+        {dailyLoading ? (
+          <p className="text-muted-foreground">Loading…</p>
+        ) : daily.length === 0 ? (
+          <p className="text-muted-foreground">No data yet.</p>
+        ) : (
+          <ul className="space-y-1 text-sm">
+            {daily.map(({ date, count }) => (
+              <li key={date} className="flex gap-4">
+                <span className="text-muted-foreground w-28">{date}</span>
+                <span className="font-medium">{count} events</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      {/* Recent Events */}
+      <section>
+        <h2 className="text-lg font-semibold mb-3">Recent Events</h2>
+        {recentEvents.length === 0 ? (
+          <p className="text-muted-foreground">No events recorded yet.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left py-2 pr-4">Event</th>
+                  <th className="text-left py-2 pr-4">User</th>
+                  <th className="text-left py-2">Time</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentEvents.slice(0, 20).map((e: any) => (
+                  <tr key={e.id} className="border-b">
+                    <td className="py-1 pr-4 font-mono">{e.name}</td>
+                    <td className="py-1 pr-4 text-muted-foreground">{e.userId ?? '—'}</td>
+                    <td className="py-1 text-muted-foreground">
+                      {new Date(e.createdAt).toLocaleString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}

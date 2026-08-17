@@ -1,0 +1,87 @@
+{
+  "id": "add-billing",
+  "version": "0.1.0",
+  "description": "Adds Stripe checkout, subscription management, billing portal, and webhook handling",
+  "files": [
+    {
+      "path": "{{serverDir}}/billing.routes.ts",
+      "template": "billing.routes.replit.ts.hbs",
+      "when": "replit-fullstack"
+    },
+    {
+      "path": "{{serverDir}}/billing.routes.ts",
+      "template": "billing.routes.ts.hbs",
+      "when": "express"
+    },
+    {
+      "path": "{{serverDir}}/billing.webhook.ts",
+      "template": "billing.webhook.ts.hbs"
+    },
+    {
+      "path": "client/src/hooks/use-billing.ts",
+      "template": "use-billing.ts.hbs",
+      "when": "replit-fullstack"
+    },
+    {
+      "path": "client/src/pages/billing-page.tsx",
+      "template": "billing-page.tsx.hbs",
+      "when": "replit-fullstack"
+    }
+  ],
+  "file_injections": [
+    {
+      "when": "replit-fullstack",
+      "type": "insert_before",
+      "file": "{{sharedDir}}/schema.ts",
+      "pattern": "^import",
+      "template": "schema.billing-imports.ts.hbs",
+      "guard": "varchar"
+    },
+    {
+      "when": "replit-fullstack",
+      "type": "append",
+      "file": "{{sharedDir}}/schema.ts",
+      "template": "schema.billing.append.ts.hbs",
+      "guard": "stackmod:add-billing"
+    },
+    {
+      "when": "replit-fullstack",
+      "type": "insert_before",
+      "file": "client/src/App.tsx",
+      "pattern": "import NotFound from",
+      "template": "app-billing-import.tsx.hbs",
+      "guard": "pages/billing-page"
+    },
+    {
+      "when": "replit-fullstack",
+      "type": "insert_before",
+      "file": "client/src/App.tsx",
+      "pattern": "<Route component=\\{NotFound\\}",
+      "template": "app-billing-route.tsx.hbs",
+      "guard": "path=\"/billing\""
+    }
+  ],
+  "dependencies": [
+    "stripe"
+  ],
+  "env": [
+    "STRIPE_SECRET_KEY",
+    "STRIPE_PUBLISHABLE_KEY",
+    "STRIPE_WEBHOOK_SECRET",
+    "STRIPE_PRICE_ID"
+  ],
+  "entry_injection": [
+    {
+      "when": "replit-fullstack",
+      "type": "replit_routes",
+      "mount": "/api/billing",
+      "import": "./billing.routes",
+      "targetFile": "{{serverDir}}/routes.ts"
+    },
+    {
+      "type": "express_router",
+      "mount": "/billing",
+      "import": "./billing.routes"
+    }
+  ]
+}

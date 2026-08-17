@@ -1,0 +1,18 @@
+{
+    "id": "add-route",
+    "version": "0.1.0",
+    "description": "Adds a named Express route module and registers it in the server entry file",
+    "files": [
+        {
+            "path": "src/routes/{{routeName}}.ts",
+            "template": "route.ts.hbs"
+        }
+    ],
+    "dependencies": [],
+    "env": [],
+    "entry_injection": {
+        "type": "express_router",
+        "mount": "/{{routeName}}",
+        "import": "./routes/{{routeName}}"
+    }
+}

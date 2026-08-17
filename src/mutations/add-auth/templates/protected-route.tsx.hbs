@@ -1,0 +1,25 @@
+import { useEffect } from 'react';
+import { useLocation } from 'wouter';
+import { useAuth } from '@/hooks/use-auth';
+
+interface ProtectedRouteProps {
+  path: string;
+  component: React.ComponentType;
+}
+
+export function ProtectedRoute({ component: Component }: ProtectedRouteProps) {
+  const { isAuthenticated } = useAuth();
+  const [, navigate] = useLocation();
+
+  useEffect(() => {
+    if (!isAuthenticated()) {
+      navigate('/auth');
+    }
+  }, []);
+
+  if (!isAuthenticated()) {
+    return null;
+  }
+
+  return <Component />;
+}

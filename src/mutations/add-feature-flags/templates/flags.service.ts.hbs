@@ -1,0 +1,44 @@
+import crypto from 'crypto';
+
+// ─── Feature Flag Service ─────────────────────────────────────────────────────
+
+interface CachedFlag {
+  enabled: boolean;
+  rollout: number; // 0-100
+  updatedAt: Date;
+}
+
+class FeatureFlagService {
+  private cache = new Map<string, CachedFlag>();
+
+  /**
+   * Evaluate a flag for a given user.
+   * - If disabled → false
+   * - If rollout = 100 → true
+   * - Otherwise: stable hash of (flagName + userId) mod 100 < rollout
+   */
+  isEnabled(flagName: string, userId?: string): boolean {
+    const flag = this.cache.get(flagName);
+    if (!flag || !flag.enabled) return false;
+    if (flag.rollout >= 100) return true;
+    if (!userId) return false;
+
+    const hash = crypto.createHash('md5').update(flagName + userId).digest('hex');
+    const bucket = parseInt(hash.slice(0, 8), 16) % 100;
+    return bucket < flag.rollout;
+  }
+
+  setFlag(name: string, data: Omit<CachedFlag, 'updatedAt'>): void {
+    this.cache.set(name, { ...data, updatedAt: new Date() });
+  }
+
+  deleteFlag(name: string): void {
+    this.cache.delete(name);
+  }
+
+  getAll(): Array<{ name: string } & CachedFlag> {
+    return Array.from(this.cache.entries()).map(([name, data]) => ({ name, ...data }));
+  }
+}
+
+export const flagService = new FeatureFlagService();

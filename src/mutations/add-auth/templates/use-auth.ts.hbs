@@ -1,0 +1,96 @@
+import { useState, useCallback } from 'react';
+
+const TOKEN_KEY = 'auth_token';
+
+function getToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+function setToken(token: string): void {
+  localStorage.setItem(TOKEN_KEY, token);
+}
+
+function clearToken(): void {
+  localStorage.removeItem(TOKEN_KEY);
+}
+
+export interface AuthUser {
+  userId: string;
+  email: string;
+}
+
+export function useAuth() {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const login = useCallback(async (email: string, password: string): Promise<void> => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Login failed');
+      setToken(data.token);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Login failed';
+      setError(msg);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const register = useCallback(async (email: string, password: string): Promise<void> => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Registration failed');
+      // Auto-login after register
+      await login(email, password);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Registration failed';
+      setError(msg);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [login]);
+
+  const logout = useCallback((): void => {
+    clearToken();
+  }, []);
+
+  const getAuthHeaders = useCallback((): Record<string, string> => {
+    const token = getToken();
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }, []);
+
+  const getUser = useCallback((): AuthUser | null => {
+    const token = getToken();
+    if (!token) return null;
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      if (payload.exp * 1000 < Date.now()) {
+        clearToken();
+        return null;
+      }
+      return { userId: payload.userId, email: payload.email };
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const isAuthenticated = useCallback((): boolean => getUser() !== null, [getUser]);
+
+  return { login, register, logout, getAuthHeaders, getUser, isAuthenticated, isLoading, error };
+}

@@ -1,0 +1,47 @@
+import { Router } from 'express';
+import { metricsCollector } from './observability.middleware';
+import fs from 'fs';
+import path from 'path';
+
+const router = Router();
+
+// ─── GET /health ─────────────────────────────────────────────────────────────
+
+router.get('/health', (_req, res) => {
+  res.json({
+    status: 'ok',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+    memory: process.memoryUsage(),
+  });
+});
+
+// ─── GET /metrics ─────────────────────────────────────────────────────────────
+
+router.get('/metrics', (_req, res) => {
+  res.json({
+    requestCount: metricsCollector.requestCount,
+    errorCount: metricsCollector.errorCount,
+    p50LatencyMs: metricsCollector.getPercentile(50),
+    p95LatencyMs: metricsCollector.getPercentile(95),
+    p99LatencyMs: metricsCollector.getPercentile(99),
+    routes: metricsCollector.getRouteStats(),
+  });
+});
+
+// ─── GET /version ─────────────────────────────────────────────────────────────
+
+let pkgVersion = 'unknown';
+let pkgName = 'unknown';
+try {
+  const pkgPath = path.resolve(process.cwd(), 'package.json');
+  const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
+  pkgVersion = pkg.version ?? 'unknown';
+  pkgName = pkg.name ?? 'unknown';
+} catch { /* ignore */ }
+
+router.get('/version', (_req, res) => {
+  res.json({ name: pkgName, version: pkgVersion });
+});
+
+export default router;

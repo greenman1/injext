@@ -1,0 +1,82 @@
+{
+  "id": "add-admin",
+  "version": "0.1.0",
+  "description": "Adds an admin dashboard with user management, role-based access, and system stats",
+  "files": [
+    {
+      "path": "{{serverDir}}/admin.routes.ts",
+      "template": "admin.routes.replit.ts.hbs",
+      "when": "replit-fullstack"
+    },
+    {
+      "path": "{{serverDir}}/admin.routes.ts",
+      "template": "admin.routes.ts.hbs",
+      "when": "express"
+    },
+    {
+      "path": "{{serverDir}}/admin.middleware.ts",
+      "template": "admin.middleware.ts.hbs"
+    },
+    {
+      "path": "client/src/pages/admin-page.tsx",
+      "template": "admin-page.tsx.hbs",
+      "when": "replit-fullstack"
+    },
+    {
+      "path": "client/src/hooks/use-admin.ts",
+      "template": "use-admin.ts.hbs",
+      "when": "replit-fullstack"
+    }
+  ],
+  "file_injections": [
+    {
+      "when": "replit-fullstack",
+      "type": "insert_before",
+      "file": "{{sharedDir}}/schema.ts",
+      "pattern": "^import",
+      "template": "schema.admin-imports.ts.hbs",
+      "guard": "stackmod:add-admin-import"
+    },
+    {
+      "when": "replit-fullstack",
+      "type": "append",
+      "file": "{{sharedDir}}/schema.ts",
+      "template": "schema.admin.append.ts.hbs",
+      "guard": "stackmod:add-admin"
+    },
+    {
+      "when": "replit-fullstack",
+      "type": "insert_before",
+      "file": "client/src/App.tsx",
+      "pattern": "import NotFound from",
+      "template": "app-admin-import.tsx.hbs",
+      "guard": "pages/admin-page"
+    },
+    {
+      "when": "replit-fullstack",
+      "type": "insert_before",
+      "file": "client/src/App.tsx",
+      "pattern": "<Route component=\\{NotFound\\}",
+      "template": "app-admin-route.tsx.hbs",
+      "guard": "path=\"/admin\""
+    }
+  ],
+  "dependencies": [],
+  "env": [
+    "ADMIN_SECRET"
+  ],
+  "entry_injection": [
+    {
+      "when": "replit-fullstack",
+      "type": "replit_routes",
+      "mount": "/api/admin",
+      "import": "./admin.routes",
+      "targetFile": "{{serverDir}}/routes.ts"
+    },
+    {
+      "type": "express_router",
+      "mount": "/admin-api",
+      "import": "./admin.routes"
+    }
+  ]
+}

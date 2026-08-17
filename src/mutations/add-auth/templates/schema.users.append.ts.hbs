@@ -1,0 +1,13 @@
+
+// ─── Auth: auth_users table ───────────────────────────────────────────────────
+// Added by StackMod add-auth — stackmod:add-auth
+
+export const authUsers = pgTable('auth_users', {
+  id: serial('id').primaryKey(),
+  email: text('email').notNull().unique(),
+  passwordHash: text('password_hash').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export type AuthUser = typeof authUsers.$inferSelect;
+export type InsertAuthUser = typeof authUsers.$inferInsert;

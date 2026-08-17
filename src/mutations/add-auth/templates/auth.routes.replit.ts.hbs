@@ -1,0 +1,96 @@
+import { Router, Request, Response } from 'express';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import { db } from '{{dbFile}}';
+import { authUsers } from '../shared/schema';
+import { eq } from 'drizzle-orm';
+
+const router = Router();
+
+// ─── POST /register ───────────────────────────────────────────────────────────
+
+router.post('/register', async (req: Request, res: Response) => {
+  try {
+    const { email, password } = req.body as { email?: string; password?: string };
+
+    if (!email || !password) {
+      res.status(400).json({ error: 'email and password are required' });
+      return;
+    }
+
+    const existing = await db.select().from(authUsers).where(eq(authUsers.email, email)).limit(1);
+    if (existing.length > 0) {
+      res.status(409).json({ error: 'A user with this email already exists' });
+      return;
+    }
+
+    const salt = await bcrypt.genSalt(12);
+    const passwordHash = await bcrypt.hash(password, salt);
+
+    const [user] = await db
+      .insert(authUsers)
+      .values({ email, passwordHash })
+      .returning({ id: authUsers.id, email: authUsers.email });
+
+    res.status(201).json({ id: user.id, email: user.email });
+  } catch (err) {
+    console.error('[auth] register error:', err);
+    res.status(500).json({ error: 'Registration failed' });
+  }
+});
+
+// ─── POST /login ──────────────────────────────────────────────────────────────
+
+router.post('/login', async (req: Request, res: Response) => {
+  try {
+    const { email, password } = req.body as { email?: string; password?: string };
+
+    if (!email || !password) {
+      res.status(400).json({ error: 'email and password are required' });
+      return;
+    }
+
+    const [user] = await db.select().from(authUsers).where(eq(authUsers.email, email)).limit(1);
+    if (!user) {
+      res.status(401).json({ error: 'Invalid credentials' });
+      return;
+    }
+
+    const valid = await bcrypt.compare(password, user.passwordHash);
+    if (!valid) {
+      res.status(401).json({ error: 'Invalid credentials' });
+      return;
+    }
+
+    const secret = process.env.JWT_SECRET;
+    const expiry = process.env.JWT_EXPIRY ?? '7d';
+
+    if (!secret) {
+      res.status(500).json({ error: 'Auth misconfiguration: JWT_SECRET not set' });
+      return;
+    }
+
+    const token = jwt.sign(
+      { userId: String(user.id), email: user.email },
+      secret,
+      { expiresIn: expiry } as jwt.SignOptions
+    );
+
+    res.status(200).json({ token, expiresIn: expiry });
+  } catch (err) {
+    console.error('[auth] login error:', err);
+    res.status(500).json({ error: 'Login failed' });
+  }
+});
+
+// ─── GET /me ──────────────────────────────────────────────────────────────────
+
+router.get('/me', (req: Request, res: Response) => {
+  if (!req.user) {
+    res.status(401).json({ error: 'Not authenticated' });
+    return;
+  }
+  res.json({ userId: req.user.userId, email: req.user.email });
+});
+
+export default router;

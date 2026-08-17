@@ -1,0 +1,67 @@
+{
+  "id": "add-notifications",
+  "version": "0.1.0",
+  "description": "Adds email notifications via nodemailer with in-memory queue and template support",
+  "files": [
+    {
+      "path": "{{serverDir}}/notifications.routes.ts",
+      "template": "notifications.routes.replit.ts.hbs",
+      "when": "replit-fullstack"
+    },
+    {
+      "path": "{{serverDir}}/notifications.routes.ts",
+      "template": "notifications.routes.ts.hbs",
+      "when": "express"
+    },
+    {
+      "path": "{{serverDir}}/notifications.service.ts",
+      "template": "notifications.service.ts.hbs"
+    },
+    {
+      "path": "{{serverDir}}/email.templates.ts",
+      "template": "email.templates.ts.hbs"
+    }
+  ],
+  "file_injections": [
+    {
+      "when": "replit-fullstack",
+      "type": "insert_before",
+      "file": "{{sharedDir}}/schema.ts",
+      "pattern": "^import",
+      "template": "schema.notifications-imports.ts.hbs",
+      "guard": "stackmod:add-notifications-import"
+    },
+    {
+      "when": "replit-fullstack",
+      "type": "append",
+      "file": "{{sharedDir}}/schema.ts",
+      "template": "schema.notifications.append.ts.hbs",
+      "guard": "stackmod:add-notifications"
+    }
+  ],
+  "dependencies": [
+    "nodemailer",
+    "@types/nodemailer"
+  ],
+  "env": [
+    "SMTP_HOST",
+    "SMTP_PORT",
+    "SMTP_USER",
+    "SMTP_PASS",
+    "EMAIL_FROM"
+  ],
+  "entry_injection": [
+    {
+      "when": "replit-fullstack",
+      "type": "replit_routes",
+      "mount": "/api/notifications",
+      "import": "./notifications.routes",
+      "targetFile": "{{serverDir}}/routes.ts"
+    },
+    {
+      "type": "express_router",
+      "mount": "/notifications",
+      "import": "./notifications.routes"
+    }
+  ]
+}

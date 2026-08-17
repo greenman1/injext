@@ -1,0 +1,63 @@
+{
+    "name": "stackmod",
+    "version": "0.1.0",
+    "description": "Injext: Code Mutation Engine for Replit",
+    "license": "MIT",
+    "author": "greenman1",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/greenman1/new-without.git"
+    },
+    "bugs": {
+        "url": "https://github.com/greenman1/new-without/issues"
+    },
+    "homepage": "https://github.com/greenman1/new-without#readme",
+    "keywords": [
+        "codegen",
+        "codemod",
+        "cli",
+        "injext",
+        "mutation-compiler",
+        "replit",
+        "scaffolding",
+        "express",
+        "typescript"
+    ],
+    "main": "dist/cli.js",
+    "bin": {
+        "stackmod": "./bin/stackmod.js"
+    },
+    "files": [
+        "dist",
+        "bin",
+        "CHANGELOG.md"
+    ],
+    "scripts": {
+        "build": "node scripts/build.js",
+        "start": "node dist/server/server.js",
+        "test": "npm run build && node --test",
+        "check": "npm test && npm audit --omit=dev --audit-level=high && npm pack --dry-run",
+        "prepack": "npm run build"
+    },
+    "engines": {
+        "node": ">=20"
+    },
+    "publishConfig": {
+        "access": "public"
+    },
+    "dependencies": {
+        "chalk": "^4.1.2",
+        "commander": "^11.1.0",
+        "fastify": "^5.12.0",
+        "handlebars": "^4.7.9",
+        "prompts": "^2.4.2",
+        "tar": "^7.5.22"
+    },
+    "devDependencies": {
+        "@types/handlebars": "^4.0.40",
+        "@types/node": "^20.19.37",
+        "@types/prompts": "^2.4.9",
+        "ts-node": "^10.9.2",
+        "typescript": "^5.3.3"
+    }
+}

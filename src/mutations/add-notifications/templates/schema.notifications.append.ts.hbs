@@ -1,0 +1,14 @@
+
+// ─── Notifications: notification_log table ────────────────────────────────────
+// Added by StackMod add-notifications — stackmod:add-notifications
+
+export const notificationLog = pgTable('notification_log', {
+  id: serial('id').primaryKey(),
+  to: text('to').notNull(),
+  subject: text('subject').notNull(),
+  status: text('status').notNull(), // 'sent' | 'failed'
+  error: text('error'),
+  sentAt: timestamp('sent_at').defaultNow().notNull(),
+});
+
+export type NotificationLog = typeof notificationLog.$inferSelect;

@@ -1,0 +1,16 @@
+
+// ─── Billing: billing_subscriptions table ─────────────────────────────────────
+// Added by StackMod add-billing — stackmod:add-billing
+
+export const billingSubscriptions = pgTable('billing_subscriptions', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id'),
+  stripeCustomerId: text('stripe_customer_id'),
+  stripeSubscriptionId: text('stripe_subscription_id'),
+  plan: varchar('plan', { length: 50 }),
+  status: varchar('status', { length: 50 }).default('inactive'),
+  currentPeriodEnd: timestamp('current_period_end'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export type BillingSubscription = typeof billingSubscriptions.$inferSelect;

@@ -1,0 +1,88 @@
+import crypto from 'crypto';
+import { Router, Request, Response } from 'express';
+import { apiKeyStore, hashKey } from './apikeys.middleware';
+
+const router = Router();
+
+const PREFIX = process.env.API_KEY_PREFIX ?? 'sk_';
+let nextId = 1;
+
+function generateRawKey(): string {
+  return `${PREFIX}${crypto.randomBytes(32).toString('hex')}`;
+}
+
+// ─── POST / — generate key ────────────────────────────────────────────────────
+
+router.post('/', (req: Request, res: Response) => {
+  const { name } = req.body as { name?: string };
+  if (!name) {
+    res.status(400).json({ error: 'name is required' });
+    return;
+  }
+
+  const rawKey = generateRawKey();
+  const keyHash = hashKey(rawKey);
+  const prefix = rawKey.slice(0, PREFIX.length + 8);
+  const id = nextId++;
+  const userId = (req as any).user?.userId ? Number((req as any).user.userId) : null;
+
+  apiKeyStore.set(keyHash, { id, userId, name, revokedAt: null });
+  res.status(201).json({ id, name, prefix, userId, createdAt: new Date(), key: rawKey });
+});
+
+// ─── GET / — list keys ────────────────────────────────────────────────────────
+
+router.get('/', (_req: Request, res: Response) => {
+  const list = Array.from(apiKeyStore.entries()).map(([, v]) => ({
+    id: v.id,
+    name: v.name,
+    userId: v.userId,
+    revokedAt: v.revokedAt,
+  }));
+  res.json(list);
+});
+
+// ─── DELETE /:id — revoke ─────────────────────────────────────────────────────
+
+router.delete('/:id', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  for (const [hash, record] of apiKeyStore) {
+    if (record.id === id) {
+      apiKeyStore.set(hash, { ...record, revokedAt: new Date() });
+      res.json({ revoked: true });
+      return;
+    }
+  }
+  res.status(404).json({ error: 'Key not found' });
+});
+
+// ─── POST /:id/rotate ─────────────────────────────────────────────────────────
+
+router.post('/:id/rotate', (req: Request, res: Response) => {
+  const id = Number(req.params.id);
+  let oldRecord: { id: number; userId: number | null; name: string; revokedAt: Date | null } | undefined;
+  let oldHash: string | undefined;
+
+  for (const [hash, record] of apiKeyStore) {
+    if (record.id === id) {
+      oldRecord = record;
+      oldHash = hash;
+      break;
+    }
+  }
+
+  if (!oldRecord || !oldHash) {
+    res.status(404).json({ error: 'Key not found' });
+    return;
+  }
+
+  apiKeyStore.set(oldHash, { ...oldRecord, revokedAt: new Date() });
+
+  const rawKey = generateRawKey();
+  const newHash = hashKey(rawKey);
+  const newId = nextId++;
+  apiKeyStore.set(newHash, { id: newId, userId: oldRecord.userId, name: oldRecord.name, revokedAt: null });
+  res.status(201).json({ id: newId, name: oldRecord.name, createdAt: new Date(), key: rawKey });
+});
+
+export default router;

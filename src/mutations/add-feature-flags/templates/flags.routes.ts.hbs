@@ -1,0 +1,67 @@
+import { Router, Request, Response } from 'express';
+import { flagService } from './flags.service';
+
+const router = Router();
+
+// ─── GET / ─────────────────────────────────────────────────────────────────
+
+router.get('/', (_req: Request, res: Response) => {
+  res.json(flagService.getAll());
+});
+
+// ─── POST / ────────────────────────────────────────────────────────────────
+
+router.post('/', (req: Request, res: Response) => {
+  const { name, enabled = false, rollout = 100 } = req.body as {
+    name?: string;
+    enabled?: boolean;
+    rollout?: number;
+  };
+
+  if (!name) {
+    res.status(400).json({ error: 'name is required' });
+    return;
+  }
+
+  flagService.setFlag(name, { enabled, rollout });
+  res.status(201).json({ name, enabled, rollout });
+});
+
+// ─── PATCH /:name ──────────────────────────────────────────────────────────
+
+router.patch('/:name', (req: Request, res: Response) => {
+  const existing = flagService.getAll().find(f => f.name === req.params.name);
+  if (!existing) {
+    res.status(404).json({ error: 'Flag not found' });
+    return;
+  }
+
+  const { enabled, rollout } = req.body as { enabled?: boolean; rollout?: number };
+  flagService.setFlag(req.params.name, {
+    enabled: enabled ?? existing.enabled,
+    rollout: rollout ?? existing.rollout,
+  });
+  res.json({ name: req.params.name, enabled: enabled ?? existing.enabled, rollout: rollout ?? existing.rollout });
+});
+
+// ─── DELETE /:name ─────────────────────────────────────────────────────────
+
+router.delete('/:name', (req: Request, res: Response) => {
+  const existing = flagService.getAll().find(f => f.name === req.params.name);
+  if (!existing) {
+    res.status(404).json({ error: 'Flag not found' });
+    return;
+  }
+  flagService.deleteFlag(req.params.name);
+  res.json({ deleted: true });
+});
+
+// ─── GET /:name/evaluate ───────────────────────────────────────────────────
+
+router.get('/:name/evaluate', (req: Request, res: Response) => {
+  const userId = req.query.userId as string | undefined;
+  const enabled = flagService.isEnabled(req.params.name, userId);
+  res.json({ flag: req.params.name, enabled, userId: userId ?? null });
+});
+
+export default router;

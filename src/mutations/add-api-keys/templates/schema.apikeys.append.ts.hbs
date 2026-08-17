@@ -1,0 +1,17 @@
+
+// ─── API Keys: api_keys table ─────────────────────────────────────────────────
+// Added by StackMod add-api-keys — stackmod:add-api-keys
+
+export const apiKeys = pgTable('api_keys', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id'),
+  name: text('name').notNull(),
+  keyHash: text('key_hash').notNull().unique(), // SHA-256 of the raw key — never store raw
+  prefix: text('prefix').notNull(),              // first 8 chars, shown in list UI
+  revokedAt: timestamp('revoked_at'),
+  lastUsedAt: timestamp('last_used_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export type ApiKey = typeof apiKeys.$inferSelect;
+export type InsertApiKey = typeof apiKeys.$inferInsert;

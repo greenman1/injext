@@ -1,0 +1,48 @@
+import { Router, Request, Response } from 'express';
+
+const router = Router();
+
+// ─── GET /{{routeName}} ───────────────────────────────────────────────────────
+
+router.get('/', (req: Request, res: Response) => {
+res.json({
+resource: '{{routeName}}',
+items: [],
+page: 1,
+total: 0,
+});
+});
+
+// ─── GET /{{routeName}}/:id ───────────────────────────────────────────────────
+
+router.get('/:id', (req: Request, res: Response) => {
+const { id } = req.params;
+res.json({ resource: '{{routeName}}', id });
+});
+
+// ─── POST /{{routeName}} ──────────────────────────────────────────────────────
+
+router.post('/', (req: Request, res: Response) => {
+const body = req.body as Record<string, unknown>;
+    // TODO: persist to your database
+    res.status(201).json({ resource: '{{routeName}}', created: body });
+    });
+
+    // ─── PUT /{{routeName}}/:id ───────────────────────────────────────────────────
+
+    router.put('/:id', (req: Request, res: Response) => {
+    const { id } = req.params;
+    const body = req.body as Record<string, unknown>;
+        // TODO: update in your database
+        res.json({ resource: '{{routeName}}', id, updated: body });
+        });
+
+        // ─── DELETE /{{routeName}}/:id ────────────────────────────────────────────────
+
+        router.delete('/:id', (req: Request, res: Response) => {
+        const { id } = req.params;
+        // TODO: delete from your database
+        res.json({ resource: '{{routeName}}', id, deleted: true });
+        });
+
+        export default router;

@@ -1,0 +1,126 @@
+import { Router, Request, Response } from 'express';
+import { db } from '{{dbFile}}';
+import { featureFlags } from '../shared/schema';
+import { eq } from 'drizzle-orm';
+import { flagService } from './flags.service';
+
+const router = Router();
+
+// Warm cache from DB on startup
+(async () => {
+  try {
+    const flags = await db.select().from(featureFlags);
+    for (const f of flags) {
+      flagService.setFlag(f.name, { enabled: f.enabled, rollout: f.rollout });
+    }
+  } catch (err) {
+    console.error('[flags] Failed to warm cache:', err);
+  }
+})();
+
+// ─── GET / ─────────────────────────────────────────────────────────────────
+
+router.get('/', async (_req: Request, res: Response) => {
+  try {
+    const flags = await db.select().from(featureFlags);
+    res.json(flags);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to list flags' });
+  }
+});
+
+// ─── POST / ────────────────────────────────────────────────────────────────
+
+router.post('/', async (req: Request, res: Response) => {
+  try {
+    const { name, enabled = false, rollout = 100, description } = req.body as {
+      name?: string;
+      enabled?: boolean;
+      rollout?: number;
+      description?: string;
+    };
+
+    if (!name) {
+      res.status(400).json({ error: 'name is required' });
+      return;
+    }
+
+    const [flag] = await db
+      .insert(featureFlags)
+      .values({ name, enabled, rollout, description })
+      .returning();
+
+    flagService.setFlag(flag.name, { enabled: flag.enabled, rollout: flag.rollout });
+    res.status(201).json(flag);
+  } catch (err: any) {
+    if (err?.code === '23505') {
+      res.status(409).json({ error: 'Flag with this name already exists' });
+    } else {
+      res.status(500).json({ error: 'Failed to create flag' });
+    }
+  }
+});
+
+// ─── PATCH /:name ──────────────────────────────────────────────────────────
+
+router.patch('/:name', async (req: Request, res: Response) => {
+  try {
+    const { enabled, rollout, description } = req.body as {
+      enabled?: boolean;
+      rollout?: number;
+      description?: string;
+    };
+
+    const updates: Record<string, unknown> = { updatedAt: new Date() };
+    if (enabled !== undefined) updates.enabled = enabled;
+    if (rollout !== undefined) updates.rollout = rollout;
+    if (description !== undefined) updates.description = description;
+
+    const [flag] = await db
+      .update(featureFlags)
+      .set(updates)
+      .where(eq(featureFlags.name, req.params.name))
+      .returning();
+
+    if (!flag) {
+      res.status(404).json({ error: 'Flag not found' });
+      return;
+    }
+
+    flagService.setFlag(flag.name, { enabled: flag.enabled, rollout: flag.rollout });
+    res.json(flag);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update flag' });
+  }
+});
+
+// ─── DELETE /:name ─────────────────────────────────────────────────────────
+
+router.delete('/:name', async (req: Request, res: Response) => {
+  try {
+    const [deleted] = await db
+      .delete(featureFlags)
+      .where(eq(featureFlags.name, req.params.name))
+      .returning();
+
+    if (!deleted) {
+      res.status(404).json({ error: 'Flag not found' });
+      return;
+    }
+
+    flagService.deleteFlag(req.params.name);
+    res.json({ deleted: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete flag' });
+  }
+});
+
+// ─── GET /:name/evaluate ───────────────────────────────────────────────────
+
+router.get('/:name/evaluate', (req: Request, res: Response) => {
+  const userId = req.query.userId as string | undefined;
+  const enabled = flagService.isEnabled(req.params.name, userId);
+  res.json({ flag: req.params.name, enabled, userId: userId ?? null });
+});
+
+export default router;

@@ -1,0 +1,16 @@
+
+// ─── Feature Flags: feature_flags table ──────────────────────────────────────
+// Added by StackMod add-feature-flags — stackmod:add-feature-flags
+
+export const featureFlags = pgTable('feature_flags', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull().unique(),
+  enabled: boolean('enabled').default(false).notNull(),
+  rollout: integer('rollout').default(100).notNull(), // 0-100 percentage
+  description: text('description'),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export type FeatureFlag = typeof featureFlags.$inferSelect;
+export type InsertFeatureFlag = typeof featureFlags.$inferInsert;

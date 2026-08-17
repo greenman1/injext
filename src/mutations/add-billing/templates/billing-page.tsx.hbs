@@ -1,0 +1,104 @@
+import { useState } from 'react';
+import { useSubscription, createCheckoutSession, openBillingPortal } from '@/hooks/use-billing';
+
+export default function BillingPage() {
+  const { subscription, isLoading } = useSubscription();
+  const [error, setError] = useState<string | null>(null);
+  const [isRedirecting, setIsRedirecting] = useState(false);
+
+  const params = new URLSearchParams(window.location.search);
+  const justPaid = params.get('success') === '1';
+  const cancelled = params.get('cancelled') === '1';
+
+  const handleUpgrade = async () => {
+    setError(null);
+    setIsRedirecting(true);
+    try {
+      await createCheckoutSession();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to start checkout');
+      setIsRedirecting(false);
+    }
+  };
+
+  const handleManage = async () => {
+    setError(null);
+    setIsRedirecting(true);
+    try {
+      await openBillingPortal();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to open billing portal');
+      setIsRedirecting(false);
+    }
+  };
+
+  const isActive = subscription?.status === 'active' || subscription?.status === 'trialing';
+
+  return (
+    <div className="max-w-2xl mx-auto p-6 space-y-6">
+      <h1 className="text-2xl font-bold">Billing</h1>
+
+      {justPaid && (
+        <div className="rounded-lg bg-green-50 border border-green-200 p-4 text-green-800">
+          Payment successful! Your subscription is now active.
+        </div>
+      )}
+
+      {cancelled && (
+        <div className="rounded-lg bg-yellow-50 border border-yellow-200 p-4 text-yellow-800">
+          Checkout cancelled. No charge was made.
+        </div>
+      )}
+
+      {error && (
+        <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-red-800">
+          {error}
+        </div>
+      )}
+
+      {isLoading ? (
+        <p className="text-muted-foreground">Loading billing info…</p>
+      ) : (
+        <div className="rounded-lg border p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium">Current Plan</p>
+              <p className="text-muted-foreground text-sm capitalize">
+                {subscription?.plan ?? 'Free'} — {subscription?.status ?? 'No active subscription'}
+              </p>
+              {subscription?.currentPeriodEnd && (
+                <p className="text-muted-foreground text-xs mt-1">
+                  Renews {new Date(subscription.currentPeriodEnd).toLocaleDateString()}
+                </p>
+              )}
+            </div>
+            <span className={`text-sm font-medium px-2 py-1 rounded ${isActive ? 'bg-green-100 text-green-700' : 'bg-muted text-muted-foreground'}`}>
+              {isActive ? 'Active' : 'Inactive'}
+            </span>
+          </div>
+
+          <div className="flex gap-3">
+            {!isActive && (
+              <button
+                onClick={handleUpgrade}
+                disabled={isRedirecting}
+                className="px-4 py-2 rounded bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50"
+              >
+                {isRedirecting ? 'Redirecting…' : 'Upgrade'}
+              </button>
+            )}
+            {isActive && (
+              <button
+                onClick={handleManage}
+                disabled={isRedirecting}
+                className="px-4 py-2 rounded border text-sm font-medium hover:bg-muted disabled:opacity-50"
+              >
+                {isRedirecting ? 'Redirecting…' : 'Manage Billing'}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

@@ -1,0 +1,31 @@
+import { Request, Response, NextFunction } from 'express';
+
+// ─── requireAdmin Middleware ──────────────────────────────────────────────────
+// Protects admin routes. Two auth methods are supported:
+//
+// 1. JWT role check (if add-auth is installed):
+//    req.user.role === 'admin'
+//
+// 2. X-Admin-Secret header fallback (works without add-auth):
+//    X-Admin-Secret: <value of ADMIN_SECRET env var>
+//
+// To set ADMIN_SECRET, add it to your .env file:
+//   ADMIN_SECRET=$(node -e 'console.log(require("crypto").randomBytes(32).toString("hex"))')
+
+export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
+  // Method 1: JWT user with admin role (add-auth must be applied first)
+  const user = (req as any).user;
+  if (user?.role === 'admin') {
+    next();
+    return;
+  }
+
+  // Method 2: X-Admin-Secret header
+  const secret = process.env.ADMIN_SECRET;
+  if (secret && req.headers['x-admin-secret'] === secret) {
+    next();
+    return;
+  }
+
+  res.status(403).json({ error: 'Admin access required' });
+}

@@ -1,0 +1,76 @@
+{
+  "id": "add-analytics",
+  "version": "0.1.0",
+  "description": "Adds event tracking, usage analytics, and a simple analytics dashboard",
+  "files": [
+    {
+      "path": "{{serverDir}}/analytics.routes.ts",
+      "template": "analytics.routes.replit.ts.hbs",
+      "when": "replit-fullstack"
+    },
+    {
+      "path": "{{serverDir}}/analytics.routes.ts",
+      "template": "analytics.routes.ts.hbs",
+      "when": "express"
+    },
+    {
+      "path": "client/src/hooks/use-analytics.ts",
+      "template": "use-analytics.ts.hbs",
+      "when": "replit-fullstack"
+    },
+    {
+      "path": "client/src/pages/analytics-page.tsx",
+      "template": "analytics-page.tsx.hbs",
+      "when": "replit-fullstack"
+    }
+  ],
+  "file_injections": [
+    {
+      "when": "replit-fullstack",
+      "type": "insert_before",
+      "file": "{{sharedDir}}/schema.ts",
+      "pattern": "^import",
+      "template": "schema.analytics-imports.ts.hbs",
+      "guard": "stackmod:add-analytics-import"
+    },
+    {
+      "when": "replit-fullstack",
+      "type": "append",
+      "file": "{{sharedDir}}/schema.ts",
+      "template": "schema.analytics.append.ts.hbs",
+      "guard": "stackmod:add-analytics"
+    },
+    {
+      "when": "replit-fullstack",
+      "type": "insert_before",
+      "file": "client/src/App.tsx",
+      "pattern": "import NotFound from",
+      "template": "app-analytics-import.tsx.hbs",
+      "guard": "pages/analytics-page"
+    },
+    {
+      "when": "replit-fullstack",
+      "type": "insert_before",
+      "file": "client/src/App.tsx",
+      "pattern": "<Route component=\\{NotFound\\}",
+      "template": "app-analytics-route.tsx.hbs",
+      "guard": "path=\"/analytics\""
+    }
+  ],
+  "dependencies": [],
+  "env": [],
+  "entry_injection": [
+    {
+      "when": "replit-fullstack",
+      "type": "replit_routes",
+      "mount": "/api/analytics",
+      "import": "./analytics.routes",
+      "targetFile": "{{serverDir}}/routes.ts"
+    },
+    {
+      "type": "express_router",
+      "mount": "/analytics",
+      "import": "./analytics.routes"
+    }
+  ]
+}

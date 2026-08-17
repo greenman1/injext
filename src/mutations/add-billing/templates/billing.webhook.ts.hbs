@@ -1,0 +1,82 @@
+import { Router, Request, Response } from 'express';
+import Stripe from 'stripe';
+
+// ─── Stripe Webhook Handler ───────────────────────────────────────────────────
+// Mounted separately so express.raw() applies before body parsing.
+// The billing.routes.ts re-exports this router at /webhook.
+//
+// Configure your Stripe webhook endpoint:
+//   URL: https://your-app.replit.app/api/billing/webhook
+//   Events: checkout.session.completed, customer.subscription.updated,
+//            customer.subscription.deleted
+
+export function createWebhookRouter(
+  stripe: Stripe,
+  onSubscriptionChange: (customerId: string, status: string, subscriptionId: string) => Promise<void>
+): Router {
+  const router = Router();
+
+  // Use raw body for signature verification — applied per-route
+  router.post(
+    '/',
+    (req: Request, res: Response, next) => {
+      // Parse raw body for this route only
+      let data = '';
+      req.setEncoding('utf8');
+      req.on('data', chunk => { data += chunk; });
+      req.on('end', () => {
+        (req as any).rawBody = data;
+        next();
+      });
+    },
+    async (req: Request, res: Response) => {
+      const sig = req.headers['stripe-signature'] as string;
+      const secret = process.env.STRIPE_WEBHOOK_SECRET;
+
+      if (!secret) {
+        res.status(500).json({ error: 'STRIPE_WEBHOOK_SECRET not configured' });
+        return;
+      }
+
+      let event: Stripe.Event;
+      try {
+        event = stripe.webhooks.constructEvent((req as any).rawBody, sig, secret);
+      } catch (err: any) {
+        console.error('[billing webhook] Invalid signature:', err.message);
+        res.status(400).json({ error: `Webhook signature invalid: ${err.message}` });
+        return;
+      }
+
+      try {
+        switch (event.type) {
+          case 'checkout.session.completed': {
+            const session = event.data.object as Stripe.Checkout.Session;
+            if (session.subscription && session.customer) {
+              const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
+              await onSubscriptionChange(
+                session.customer as string,
+                subscription.status,
+                session.subscription as string
+              );
+            }
+            break;
+          }
+          case 'customer.subscription.updated':
+          case 'customer.subscription.deleted': {
+            const sub = event.data.object as Stripe.Subscription;
+            await onSubscriptionChange(sub.customer as string, sub.status, sub.id);
+            break;
+          }
+          default:
+            console.log(`[billing webhook] Unhandled event: ${event.type}`);
+        }
+        res.json({ received: true });
+      } catch (err) {
+        console.error('[billing webhook] Handler error:', err);
+        res.status(500).json({ error: 'Webhook handler failed' });
+      }
+    }
+  );
+
+  return router;
+}

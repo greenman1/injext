@@ -1,0 +1,183 @@
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+import { Router, Request, Response } from 'express';
+import { db } from '{{dbFile}}';
+import { uploadedFiles } from '../shared/schema';
+import { eq } from 'drizzle-orm';
+
+const router = Router();
+
+// ─── Storage Configuration ────────────────────────────────────────────────────
+
+const UPLOAD_DIR = path.resolve(process.cwd(), process.env.UPLOAD_DIR ?? './uploads');
+const MAX_FILE_SIZE = Number(process.env.MAX_FILE_SIZE ?? 10_485_760); // 10MB
+
+// Create upload directory if it doesn't exist
+fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+
+// Deny dangerous file extensions
+const DENIED_EXTENSIONS = new Set(['.exe', '.sh', '.bat', '.php', '.cmd', '.ps1', '.msi']);
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
+  filename: (_req, file, cb) => cb(null, `${Date.now()}-${file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_')}`),
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: MAX_FILE_SIZE },
+  fileFilter: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (DENIED_EXTENSIONS.has(ext)) {
+      cb(new Error(`File type "${ext}" is not allowed`));
+    } else {
+      cb(null, true);
+    }
+  },
+});
+
+// ─── POST /upload ─────────────────────────────────────────────────────────────
+
+router.post('/upload', upload.single('file'), async (req: Request, res: Response) => {
+  try {
+    if (!req.file) {
+      res.status(400).json({ error: 'No file uploaded' });
+      return;
+    }
+
+    const userId = (req as any).user?.userId ? Number((req as any).user.userId) : null;
+
+    const [record] = await db
+      .insert(uploadedFiles)
+      .values({
+        userId,
+        originalName: req.file.originalname,
+        storedName: req.file.filename,
+        mimeType: req.file.mimetype,
+        size: req.file.size,
+        uploadPath: req.file.path,
+      })
+      .returning();
+
+    res.status(201).json(record);
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? 'Upload failed' });
+  }
+});
+
+// ─── POST /upload-many ────────────────────────────────────────────────────────
+
+router.post('/upload-many', upload.array('files', 10), async (req: Request, res: Response) => {
+  try {
+    const files = req.files as Express.Multer.File[];
+    if (!files || files.length === 0) {
+      res.status(400).json({ error: 'No files uploaded' });
+      return;
+    }
+
+    const userId = (req as any).user?.userId ? Number((req as any).user.userId) : null;
+
+    const records = await db
+      .insert(uploadedFiles)
+      .values(files.map(f => ({
+        userId,
+        originalName: f.originalname,
+        storedName: f.filename,
+        mimeType: f.mimetype,
+        size: f.size,
+        uploadPath: f.path,
+      })))
+      .returning();
+
+    res.status(201).json(records);
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message ?? 'Upload failed' });
+  }
+});
+
+// ─── GET / ────────────────────────────────────────────────────────────────────
+
+router.get('/', async (req: Request, res: Response) => {
+  try {
+    const page = Math.max(1, Number(req.query.page ?? 1));
+    const limit = 50;
+    const offset = (page - 1) * limit;
+
+    const files = await db
+      .select({
+        id: uploadedFiles.id,
+        originalName: uploadedFiles.originalName,
+        storedName: uploadedFiles.storedName,
+        mimeType: uploadedFiles.mimeType,
+        size: uploadedFiles.size,
+        userId: uploadedFiles.userId,
+        createdAt: uploadedFiles.createdAt,
+      })
+      .from(uploadedFiles)
+      .limit(limit)
+      .offset(offset);
+
+    res.json(files);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to list files' });
+  }
+});
+
+// ─── GET /:id ─────────────────────────────────────────────────────────────────
+
+router.get('/:id', async (req: Request, res: Response) => {
+  try {
+    const [file] = await db
+      .select()
+      .from(uploadedFiles)
+      .where(eq(uploadedFiles.id, Number(req.params.id)))
+      .limit(1);
+
+    if (!file) {
+      res.status(404).json({ error: 'File not found' });
+      return;
+    }
+
+    res.redirect(`/api/files/serve/${file.storedName}`);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get file' });
+  }
+});
+
+// ─── GET /serve/:filename ─────────────────────────────────────────────────────
+
+router.get('/serve/:filename', (req: Request, res: Response) => {
+  const filename = path.basename(req.params.filename); // prevent path traversal
+  const filePath = path.resolve(UPLOAD_DIR, filename);
+  res.sendFile(filePath, err => {
+    if (err) res.status(404).json({ error: 'File not found' });
+  });
+});
+
+// ─── DELETE /:id ──────────────────────────────────────────────────────────────
+
+router.delete('/:id', async (req: Request, res: Response) => {
+  try {
+    const [file] = await db
+      .delete(uploadedFiles)
+      .where(eq(uploadedFiles.id, Number(req.params.id)))
+      .returning();
+
+    if (!file) {
+      res.status(404).json({ error: 'File not found' });
+      return;
+    }
+
+    // Remove from disk
+    fs.unlink(file.uploadPath, err => {
+      if (err) console.warn('[files] Failed to unlink file:', err);
+    });
+
+    res.json({ deleted: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete file' });
+  }
+});
+
+export default router;

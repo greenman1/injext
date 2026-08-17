@@ -1,0 +1,42 @@
+// ─── Job Registry ─────────────────────────────────────────────────────────────
+// Register handlers here. Each handler receives the job payload and must return
+// a Promise. Throw an error to trigger retry logic.
+//
+// Example:
+//   jobRegistry.register('send-email', async (payload) => {
+//     const { to, subject, html } = payload as { to: string; subject: string; html: string };
+//     await mailer.send({ to, subject, html });
+//   });
+
+type JobHandler = (payload: unknown) => Promise<void>;
+
+class JobRegistry {
+  private handlers = new Map<string, JobHandler>();
+
+  register(name: string, handler: JobHandler): void {
+    this.handlers.set(name, handler);
+  }
+
+  get(name: string): JobHandler | undefined {
+    return this.handlers.get(name);
+  }
+
+  list(): string[] {
+    return Array.from(this.handlers.keys());
+  }
+}
+
+export const jobRegistry = new JobRegistry();
+
+// ─── Default Jobs ─────────────────────────────────────────────────────────────
+// Called at startup. Add your own handlers below.
+
+export function registerDefaultJobs(): void {
+  jobRegistry.register('log-message', async (payload) => {
+    console.log('[job:log-message]', payload);
+  });
+
+  // Add your job handlers here:
+  // jobRegistry.register('send-email', async (payload) => { ... });
+  // jobRegistry.register('process-image', async (payload) => { ... });
+}

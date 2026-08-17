@@ -1,0 +1,70 @@
+import { Router, Request, Response } from 'express';
+import { db } from '{{dbFile}}';
+import { notificationLog } from '../shared/schema';
+import { desc } from 'drizzle-orm';
+import { notificationService } from './notifications.service';
+
+const router = Router();
+
+// ─── POST /send ───────────────────────────────────────────────────────────────
+
+router.post('/send', async (req: Request, res: Response) => {
+  try {
+    const { to, subject, html } = req.body as { to?: string; subject?: string; html?: string };
+
+    if (!to || !subject || !html) {
+      res.status(400).json({ error: 'to, subject, and html are required' });
+      return;
+    }
+
+    await notificationService.sendEmail(to, subject, html);
+
+    await db.insert(notificationLog).values({ to, subject, status: 'sent' });
+    res.json({ sent: true });
+  } catch (err: any) {
+    await db.insert(notificationLog).values({
+      to: req.body?.to ?? '',
+      subject: req.body?.subject ?? '',
+      status: 'failed',
+      error: err?.message ?? String(err),
+    }).catch(() => {});
+    res.status(500).json({ error: 'Failed to send notification' });
+  }
+});
+
+// ─── POST /enqueue ────────────────────────────────────────────────────────────
+
+router.post('/enqueue', (req: Request, res: Response) => {
+  const { to, subject, html } = req.body as { to?: string; subject?: string; html?: string };
+
+  if (!to || !subject || !html) {
+    res.status(400).json({ error: 'to, subject, and html are required' });
+    return;
+  }
+
+  notificationService.enqueue(to, subject, html);
+  res.json({ queued: true, queueLength: notificationService.getQueueLength() });
+});
+
+// ─── GET /queue ───────────────────────────────────────────────────────────────
+
+router.get('/queue', (_req: Request, res: Response) => {
+  res.json({ queueLength: notificationService.getQueueLength() });
+});
+
+// ─── GET /history ─────────────────────────────────────────────────────────────
+
+router.get('/history', async (_req: Request, res: Response) => {
+  try {
+    const logs = await db
+      .select()
+      .from(notificationLog)
+      .orderBy(desc(notificationLog.sentAt))
+      .limit(100);
+    res.json(logs);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch history' });
+  }
+});
+
+export default router;

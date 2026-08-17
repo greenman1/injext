@@ -1,0 +1,114 @@
+import { useState } from 'react';
+import { useUsers, setRole, deleteUser, useStats } from '@/hooks/use-admin';
+
+export default function AdminPage() {
+  const [page, setPage] = useState(1);
+  const { users, isLoading, refresh } = useUsers(page);
+  const stats = useStats();
+
+  const handleRoleChange = async (userId: number, role: string) => {
+    try {
+      await setRole(userId, role);
+      refresh();
+    } catch {
+      alert('Failed to update role');
+    }
+  };
+
+  const handleDelete = async (userId: number) => {
+    if (!confirm('Delete this user?')) return;
+    try {
+      await deleteUser(userId);
+      refresh();
+    } catch {
+      alert('Failed to delete user');
+    }
+  };
+
+  return (
+    <div className="max-w-5xl mx-auto p-6 space-y-6">
+      <h1 className="text-2xl font-bold">Admin Dashboard</h1>
+
+      {/* Stats */}
+      {stats && (
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div className="rounded-lg border p-4">
+            <p className="text-sm text-muted-foreground">Total Users</p>
+            <p className="text-2xl font-bold">{stats.totalUsers}</p>
+          </div>
+          <div className="rounded-lg border p-4">
+            <p className="text-sm text-muted-foreground">Admins</p>
+            <p className="text-2xl font-bold">{stats.adminRoles}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Users Table */}
+      <div>
+        <h2 className="text-lg font-semibold mb-3">Users</h2>
+        {isLoading ? (
+          <p className="text-muted-foreground">Loading…</p>
+        ) : (
+          <>
+            <div className="overflow-x-auto border rounded-lg">
+              <table className="w-full text-sm">
+                <thead className="bg-muted">
+                  <tr>
+                    <th className="text-left px-4 py-2">ID</th>
+                    <th className="text-left px-4 py-2">Email</th>
+                    <th className="text-left px-4 py-2">Role</th>
+                    <th className="text-left px-4 py-2">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((u: any) => (
+                    <tr key={u.id} className="border-t">
+                      <td className="px-4 py-2 text-muted-foreground">{u.id}</td>
+                      <td className="px-4 py-2">{u.email ?? `User ${u.userId ?? u.id}`}</td>
+                      <td className="px-4 py-2">
+                        <select
+                          value={u.role ?? 'user'}
+                          onChange={e => handleRoleChange(u.id ?? u.userId, e.target.value)}
+                          className="border rounded px-2 py-1 text-sm"
+                        >
+                          <option value="user">user</option>
+                          <option value="admin">admin</option>
+                        </select>
+                      </td>
+                      <td className="px-4 py-2">
+                        <button
+                          onClick={() => handleDelete(u.id ?? u.userId)}
+                          className="text-destructive text-sm hover:underline"
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="flex gap-2 mt-3">
+              <button
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="px-3 py-1 border rounded text-sm disabled:opacity-50"
+              >
+                Previous
+              </button>
+              <span className="px-3 py-1 text-sm">Page {page}</span>
+              <button
+                onClick={() => setPage(p => p + 1)}
+                disabled={users.length < 50}
+                className="px-3 py-1 border rounded text-sm disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

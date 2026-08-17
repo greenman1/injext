@@ -1,0 +1,54 @@
+{
+  "id": "add-feature-flags",
+  "version": "0.1.0",
+  "description": "Adds feature flag CRUD, rollout percentage config, and runtime toggle endpoint",
+  "files": [
+    {
+      "path": "{{serverDir}}/flags.routes.ts",
+      "template": "flags.routes.replit.ts.hbs",
+      "when": "replit-fullstack"
+    },
+    {
+      "path": "{{serverDir}}/flags.routes.ts",
+      "template": "flags.routes.ts.hbs",
+      "when": "express"
+    },
+    {
+      "path": "{{serverDir}}/flags.service.ts",
+      "template": "flags.service.ts.hbs"
+    }
+  ],
+  "file_injections": [
+    {
+      "when": "replit-fullstack",
+      "type": "insert_before",
+      "file": "{{sharedDir}}/schema.ts",
+      "pattern": "^import",
+      "template": "schema.flags-imports.ts.hbs",
+      "guard": "stackmod:add-feature-flags-import"
+    },
+    {
+      "when": "replit-fullstack",
+      "type": "append",
+      "file": "{{sharedDir}}/schema.ts",
+      "template": "schema.flags.append.ts.hbs",
+      "guard": "stackmod:add-feature-flags"
+    }
+  ],
+  "dependencies": [],
+  "env": [],
+  "entry_injection": [
+    {
+      "when": "replit-fullstack",
+      "type": "replit_routes",
+      "mount": "/api/flags",
+      "import": "./flags.routes",
+      "targetFile": "{{serverDir}}/routes.ts"
+    },
+    {
+      "type": "express_router",
+      "mount": "/flags",
+      "import": "./flags.routes"
+    }
+  ]
+}

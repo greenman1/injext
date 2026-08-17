@@ -1,0 +1,15 @@
+
+// ─── Admin: admin_user_roles table ────────────────────────────────────────────
+// Added by StackMod add-admin — stackmod:add-admin
+// Independent of authUsers — works with or without add-auth.
+
+export const adminUserRoles = pgTable('admin_user_roles', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id').notNull(),
+  role: text('role').notNull().default('user'), // 'admin' | 'user'
+  grantedBy: integer('granted_by'),
+  grantedAt: timestamp('granted_at').defaultNow().notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export type AdminUserRole = typeof adminUserRoles.$inferSelect;

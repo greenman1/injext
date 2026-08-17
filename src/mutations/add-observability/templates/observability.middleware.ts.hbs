@@ -1,0 +1,50 @@
+import { Request, Response, NextFunction } from 'express';
+
+// ─── Metrics Collector ────────────────────────────────────────────────────────
+
+class MetricsCollector {
+  requestCount = 0;
+  errorCount = 0;
+  private latencies: number[] = [];
+  private perRoute = new Map<string, { count: number; totalMs: number }>();
+
+  record(method: string, path: string, latencyMs: number, statusCode: number): void {
+    this.requestCount++;
+    if (statusCode >= 500) this.errorCount++;
+
+    this.latencies.push(latencyMs);
+    if (this.latencies.length > 10_000) this.latencies.shift();
+
+    const key = `${method} ${path}`;
+    const existing = this.perRoute.get(key) ?? { count: 0, totalMs: 0 };
+    this.perRoute.set(key, { count: existing.count + 1, totalMs: existing.totalMs + latencyMs });
+  }
+
+  getPercentile(p: number): number {
+    if (this.latencies.length === 0) return 0;
+    const sorted = [...this.latencies].sort((a, b) => a - b);
+    return sorted[Math.floor(sorted.length * p / 100)] ?? 0;
+  }
+
+  getRouteStats(): Record<string, { count: number; avgMs: number }> {
+    const result: Record<string, { count: number; avgMs: number }> = {};
+    for (const [key, val] of this.perRoute) {
+      result[key] = { count: val.count, avgMs: Math.round(val.totalMs / val.count) };
+    }
+    return result;
+  }
+}
+
+export const metricsCollector = new MetricsCollector();
+
+// ─── Request Logger Middleware ────────────────────────────────────────────────
+
+export function requestLogger(req: Request, res: Response, next: NextFunction): void {
+  const start = Date.now();
+  res.on('finish', () => {
+    const latencyMs = Date.now() - start;
+    metricsCollector.record(req.method, req.path, latencyMs, res.statusCode);
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} ${res.statusCode} ${latencyMs}ms`);
+  });
+  next();
+}

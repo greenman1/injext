@@ -1,0 +1,113 @@
+import crypto from 'crypto';
+import { jobRegistry } from './jobs.registry';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export type JobStatus = 'pending' | 'running' | 'completed' | 'failed';
+
+export interface Job {
+  id: string;
+  name: string;
+  payload: unknown;
+  status: JobStatus;
+  attempts: number;
+  maxRetries: number;
+  lastError?: string;
+  createdAt: Date;
+  startedAt?: Date;
+  completedAt?: Date;
+}
+
+// ─── JobQueue ────────────────────────────────────────────────────────────────
+
+class JobQueue {
+  private pending: Job[] = [];
+  private running = new Map<string, Job>();
+  private completed: Job[] = [];
+  private concurrency = Number(process.env.JOB_CONCURRENCY ?? 3);
+
+  enqueue(name: string, payload: unknown, opts?: { maxRetries?: number }): Job {
+    const job: Job = {
+      id: crypto.randomUUID(),
+      name,
+      payload,
+      status: 'pending',
+      attempts: 0,
+      maxRetries: opts?.maxRetries ?? Number(process.env.JOB_MAX_RETRIES ?? 3),
+      createdAt: new Date(),
+    };
+    this.pending.push(job);
+    this.tick();
+    return job;
+  }
+
+  cancel(id: string): boolean {
+    const idx = this.pending.findIndex(j => j.id === id);
+    if (idx === -1) return false;
+    this.pending.splice(idx, 1);
+    return true;
+  }
+
+  getAll(): Job[] {
+    return [...this.pending, ...Array.from(this.running.values()), ...this.completed.slice(-100)];
+  }
+
+  getById(id: string): Job | undefined {
+    return this.pending.find(j => j.id === id)
+      ?? this.running.get(id)
+      ?? this.completed.find(j => j.id === id);
+  }
+
+  getStats(): Record<string, number> {
+    return {
+      pending: this.pending.length,
+      running: this.running.size,
+      completed: this.completed.filter(j => j.status === 'completed').length,
+      failed: this.completed.filter(j => j.status === 'failed').length,
+    };
+  }
+
+  private tick(): void {
+    while (this.running.size < this.concurrency && this.pending.length > 0) {
+      const job = this.pending.shift()!;
+      this.execute(job);
+    }
+  }
+
+  private async execute(job: Job): Promise<void> {
+    job.status = 'running';
+    job.startedAt = new Date();
+    job.attempts++;
+    this.running.set(job.id, job);
+
+    try {
+      const handler = jobRegistry.get(job.name);
+      if (!handler) throw new Error(`No handler registered for job "${job.name}"`);
+      await handler(job.payload);
+      job.status = 'completed';
+      job.completedAt = new Date();
+    } catch (err: unknown) {
+      job.lastError = err instanceof Error ? err.message : String(err);
+      if (job.attempts < job.maxRetries) {
+        job.status = 'pending';
+        this.running.delete(job.id);
+        const delay = Math.pow(2, job.attempts) * 1000;
+        setTimeout(() => {
+          this.pending.push(job);
+          this.tick();
+        }, delay);
+        return;
+      } else {
+        job.status = 'failed';
+        job.completedAt = new Date();
+      }
+    }
+
+    this.running.delete(job.id);
+    this.completed.push(job);
+    if (this.completed.length > 1000) this.completed.shift();
+    this.tick();
+  }
+}
+
+export const jobQueue = new JobQueue();

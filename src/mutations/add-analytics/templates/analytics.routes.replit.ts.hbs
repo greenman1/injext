@@ -1,0 +1,98 @@
+import { Router, Request, Response } from 'express';
+import { db } from '{{dbFile}}';
+import { analyticsEvents } from '../shared/schema';
+import { desc, eq, sql } from 'drizzle-orm';
+
+const router = Router();
+
+// ─── POST /event ─────────────────────────────────────────────────────────────
+
+router.post('/event', async (req: Request, res: Response) => {
+  try {
+    const { name, properties, userId, sessionId } = req.body as {
+      name?: string;
+      properties?: Record<string, unknown>;
+      userId?: string;
+      sessionId?: string;
+    };
+
+    if (!name) {
+      res.status(400).json({ error: 'name is required' });
+      return;
+    }
+
+    const [event] = await db
+      .insert(analyticsEvents)
+      .values({
+        name,
+        properties: properties ? JSON.stringify(properties) : null,
+        userId: userId ?? (req as any).user?.userId ?? null,
+        sessionId: sessionId ?? null,
+      })
+      .returning();
+
+    res.status(201).json(event);
+  } catch (err) {
+    console.error('[analytics] track error:', err);
+    res.status(500).json({ error: 'Failed to track event' });
+  }
+});
+
+// ─── GET /events ──────────────────────────────────────────────────────────────
+
+router.get('/events', async (req: Request, res: Response) => {
+  try {
+    const page = Math.max(1, Number(req.query.page ?? 1));
+    const limit = 50;
+    const offset = (page - 1) * limit;
+
+    const events = await db
+      .select()
+      .from(analyticsEvents)
+      .orderBy(desc(analyticsEvents.createdAt))
+      .limit(limit)
+      .offset(offset);
+
+    res.json(events.map(e => ({ ...e, properties: e.properties ? JSON.parse(e.properties) : null })));
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch events' });
+  }
+});
+
+// ─── GET /summary ─────────────────────────────────────────────────────────────
+
+router.get('/summary', async (_req: Request, res: Response) => {
+  try {
+    const summary = await db
+      .select({ name: analyticsEvents.name, count: sql<number>`count(*)::int` })
+      .from(analyticsEvents)
+      .groupBy(analyticsEvents.name)
+      .orderBy(desc(sql`count(*)`));
+
+    res.json(summary);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch summary' });
+  }
+});
+
+// ─── GET /daily ───────────────────────────────────────────────────────────────
+
+router.get('/daily', async (_req: Request, res: Response) => {
+  try {
+    const daily = await db
+      .select({
+        date: sql<string>`date_trunc('day', ${analyticsEvents.createdAt})::text`,
+        count: sql<number>`count(*)::int`,
+      })
+      .from(analyticsEvents)
+      .where(sql`${analyticsEvents.createdAt} >= now() - interval '30 days'`)
+      .groupBy(sql`date_trunc('day', ${analyticsEvents.createdAt})`)
+      .orderBy(sql`date_trunc('day', ${analyticsEvents.createdAt})`);
+
+    res.json(daily);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch daily trend' });
+  }
+});
+
+export default router;

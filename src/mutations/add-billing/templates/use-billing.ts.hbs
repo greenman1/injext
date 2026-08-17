@@ -1,0 +1,57 @@
+import { useState, useEffect } from 'react';
+
+function getAuthHeaders(): Record<string, string> {
+  const token = localStorage.getItem('auth_token');
+  return token ? { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } : { 'Content-Type': 'application/json' };
+}
+
+// ─── createCheckoutSession ────────────────────────────────────────────────────
+
+export async function createCheckoutSession(priceId?: string): Promise<void> {
+  const res = await fetch('/api/billing/checkout-session', {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ priceId }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? 'Failed to create checkout session');
+  window.location.href = data.url;
+}
+
+// ─── openBillingPortal ────────────────────────────────────────────────────────
+
+export async function openBillingPortal(): Promise<void> {
+  const res = await fetch('/api/billing/portal', {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify({}),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? 'Failed to open billing portal');
+  window.location.href = data.url;
+}
+
+// ─── useSubscription ─────────────────────────────────────────────────────────
+
+export interface Subscription {
+  status: string;
+  plan?: string;
+  currentPeriodEnd?: string;
+  stripeCustomerId?: string;
+}
+
+export function useSubscription() {
+  const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    setIsLoading(true);
+    fetch('/api/billing/subscription', { headers: getAuthHeaders() })
+      .then(r => r.json())
+      .then(setSubscription)
+      .catch(() => {})
+      .finally(() => setIsLoading(false));
+  }, []);
+
+  return { subscription, isLoading };
+}

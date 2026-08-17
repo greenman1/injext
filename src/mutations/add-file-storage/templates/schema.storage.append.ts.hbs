@@ -1,0 +1,16 @@
+
+// ─── File Storage: uploaded_files table ───────────────────────────────────────
+// Added by StackMod add-file-storage — stackmod:add-file-storage
+
+export const uploadedFiles = pgTable('uploaded_files', {
+  id: serial('id').primaryKey(),
+  userId: integer('user_id'),
+  originalName: text('original_name').notNull(),
+  storedName: text('stored_name').notNull(),
+  mimeType: text('mime_type').notNull(),
+  size: integer('size').notNull(), // bytes
+  uploadPath: text('upload_path').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+export type UploadedFile = typeof uploadedFiles.$inferSelect;

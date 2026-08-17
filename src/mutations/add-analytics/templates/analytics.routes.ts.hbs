@@ -1,0 +1,81 @@
+import { Router, Request, Response } from 'express';
+
+const router = Router();
+
+interface AnalyticsEvent {
+  id: string;
+  name: string;
+  properties: unknown;
+  userId: string | null;
+  sessionId: string | null;
+  createdAt: Date;
+}
+
+const events: AnalyticsEvent[] = [];
+let nextId = 1;
+
+// ─── POST /event ─────────────────────────────────────────────────────────────
+
+router.post('/event', (req: Request, res: Response) => {
+  const { name, properties, userId, sessionId } = req.body as {
+    name?: string;
+    properties?: unknown;
+    userId?: string;
+    sessionId?: string;
+  };
+
+  if (!name) {
+    res.status(400).json({ error: 'name is required' });
+    return;
+  }
+
+  const event: AnalyticsEvent = {
+    id: String(nextId++),
+    name,
+    properties: properties ?? null,
+    userId: userId ?? (req as any).user?.userId ?? null,
+    sessionId: sessionId ?? null,
+    createdAt: new Date(),
+  };
+
+  events.push(event);
+  res.status(201).json(event);
+});
+
+// ─── GET /events ──────────────────────────────────────────────────────────────
+
+router.get('/events', (req: Request, res: Response) => {
+  const page = Math.max(1, Number(req.query.page ?? 1));
+  const limit = 50;
+  const offset = (page - 1) * limit;
+  res.json([...events].reverse().slice(offset, offset + limit));
+});
+
+// ─── GET /summary ─────────────────────────────────────────────────────────────
+
+router.get('/summary', (_req: Request, res: Response) => {
+  const counts = new Map<string, number>();
+  for (const e of events) counts.set(e.name, (counts.get(e.name) ?? 0) + 1);
+  const summary = Array.from(counts.entries())
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count);
+  res.json(summary);
+});
+
+// ─── GET /daily ───────────────────────────────────────────────────────────────
+
+router.get('/daily', (_req: Request, res: Response) => {
+  const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const counts = new Map<string, number>();
+  for (const e of events) {
+    if (e.createdAt < cutoff) continue;
+    const date = e.createdAt.toISOString().slice(0, 10);
+    counts.set(date, (counts.get(date) ?? 0) + 1);
+  }
+  const daily = Array.from(counts.entries())
+    .map(([date, count]) => ({ date, count }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+  res.json(daily);
+});
+
+export default router;

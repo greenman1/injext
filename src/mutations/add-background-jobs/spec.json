@@ -1,0 +1,39 @@
+{
+  "id": "add-background-jobs",
+  "version": "0.1.0",
+  "description": "Adds an in-memory job queue with retry logic, exponential backoff, and status endpoint",
+  "files": [
+    {
+      "path": "{{serverDir}}/jobs.service.ts",
+      "template": "jobs.service.ts.hbs"
+    },
+    {
+      "path": "{{serverDir}}/jobs.registry.ts",
+      "template": "jobs.registry.ts.hbs"
+    },
+    {
+      "path": "{{serverDir}}/jobs.routes.ts",
+      "template": "jobs.routes.ts.hbs"
+    }
+  ],
+  "file_injections": [],
+  "dependencies": [],
+  "env": [
+    "JOB_CONCURRENCY",
+    "JOB_MAX_RETRIES"
+  ],
+  "entry_injection": [
+    {
+      "when": "replit-fullstack",
+      "type": "replit_routes",
+      "mount": "/api/jobs",
+      "import": "./jobs.routes",
+      "targetFile": "{{serverDir}}/routes.ts"
+    },
+    {
+      "type": "express_router",
+      "mount": "/jobs",
+      "import": "./jobs.routes"
+    }
+  ]
+}

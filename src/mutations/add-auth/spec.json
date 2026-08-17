@@ -1,0 +1,109 @@
+{
+    "id": "add-auth",
+    "version": "0.4.0",
+    "description": "Adds JWT-based authentication to an Express/TypeScript application",
+    "files": [
+        {
+            "path": "{{serverDir}}/auth.middleware.ts",
+            "template": "auth.middleware.ts.hbs"
+        },
+        {
+            "path": "{{serverDir}}/auth.routes.ts",
+            "template": "auth.routes.replit.ts.hbs",
+            "when": "replit-fullstack"
+        },
+        {
+            "path": "{{serverDir}}/auth.routes.ts",
+            "template": "auth.routes.ts.hbs",
+            "when": "express"
+        },
+        {
+            "path": "client/src/hooks/use-auth.ts",
+            "template": "use-auth.ts.hbs",
+            "when": "replit-fullstack"
+        },
+        {
+            "path": "client/src/pages/auth-page.tsx",
+            "template": "auth-page.tsx.hbs",
+            "when": "replit-fullstack"
+        },
+        {
+            "path": "client/src/components/auth-guard.tsx",
+            "template": "auth-guard.tsx.hbs",
+            "when": "replit-fullstack"
+        }
+    ],
+    "file_injections": [
+        {
+            "when": "replit-fullstack",
+            "type": "insert_before",
+            "file": "{{sharedDir}}/schema.ts",
+            "pattern": "^import",
+            "template": "schema.auth-imports.ts.hbs",
+            "guard": "serial"
+        },
+        {
+            "when": "replit-fullstack",
+            "type": "append",
+            "file": "{{sharedDir}}/schema.ts",
+            "template": "schema.users.append.ts.hbs",
+            "guard": "stackmod:add-auth"
+        },
+        {
+            "when": "replit-fullstack",
+            "type": "insert_before",
+            "file": "client/src/App.tsx",
+            "pattern": "import NotFound from",
+            "template": "app-auth-import.tsx.hbs",
+            "guard": "pages/auth-page"
+        },
+        {
+            "when": "replit-fullstack",
+            "type": "insert_before",
+            "file": "client/src/App.tsx",
+            "pattern": "<Route component=\\{NotFound\\}",
+            "template": "app-auth-route.tsx.hbs",
+            "guard": "path=\"/auth\""
+        },
+        {
+            "when": "replit-fullstack",
+            "type": "insert_before",
+            "file": "client/src/App.tsx",
+            "pattern": "import NotFound from",
+            "template": "app-auth-guard-import.tsx.hbs",
+            "guard": "auth-guard"
+        },
+        {
+            "when": "replit-fullstack",
+            "type": "insert_before",
+            "file": "client/src/App.tsx",
+            "pattern": "<Router",
+            "template": "app-auth-guard.tsx.hbs",
+            "guard": "<AuthGuard"
+        }
+    ],
+    "dependencies": [
+        "jsonwebtoken",
+        "bcryptjs",
+        "@types/jsonwebtoken",
+        "@types/bcryptjs"
+    ],
+    "env": [
+        "JWT_SECRET",
+        "JWT_EXPIRY"
+    ],
+    "entry_injection": [
+        {
+            "when": "replit-fullstack",
+            "type": "replit_routes",
+            "mount": "/api/auth",
+            "import": "./auth.routes",
+            "targetFile": "{{serverDir}}/routes.ts"
+        },
+        {
+            "type": "express_router",
+            "mount": "/auth",
+            "import": "./auth.routes"
+        }
+    ]
+}

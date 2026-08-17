@@ -1,0 +1,56 @@
+{
+  "id": "add-api-keys",
+  "version": "0.1.0",
+  "description": "Adds API key generation, validation middleware, and key rotation (SHA-256 hash storage)",
+  "files": [
+    {
+      "path": "{{serverDir}}/apikeys.routes.ts",
+      "template": "apikeys.routes.replit.ts.hbs",
+      "when": "replit-fullstack"
+    },
+    {
+      "path": "{{serverDir}}/apikeys.routes.ts",
+      "template": "apikeys.routes.ts.hbs",
+      "when": "express"
+    },
+    {
+      "path": "{{serverDir}}/apikeys.middleware.ts",
+      "template": "apikeys.middleware.ts.hbs"
+    }
+  ],
+  "file_injections": [
+    {
+      "when": "replit-fullstack",
+      "type": "insert_before",
+      "file": "{{sharedDir}}/schema.ts",
+      "pattern": "^import",
+      "template": "schema.apikeys-imports.ts.hbs",
+      "guard": "stackmod:add-api-keys-import"
+    },
+    {
+      "when": "replit-fullstack",
+      "type": "append",
+      "file": "{{sharedDir}}/schema.ts",
+      "template": "schema.apikeys.append.ts.hbs",
+      "guard": "stackmod:add-api-keys"
+    }
+  ],
+  "dependencies": [],
+  "env": [
+    "API_KEY_PREFIX"
+  ],
+  "entry_injection": [
+    {
+      "when": "replit-fullstack",
+      "type": "replit_routes",
+      "mount": "/api/apikeys",
+      "import": "./apikeys.routes",
+      "targetFile": "{{serverDir}}/routes.ts"
+    },
+    {
+      "type": "express_router",
+      "mount": "/apikeys",
+      "import": "./apikeys.routes"
+    }
+  ]
+}

@@ -1,0 +1,62 @@
+import { useState, useEffect, useCallback } from 'react';
+
+function getAuthHeaders(): Record<string, string> {
+  const token = localStorage.getItem('auth_token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+// ─── useUsers ─────────────────────────────────────────────────────────────────
+
+export function useUsers(page = 1) {
+  const [users, setUsers] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const refresh = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const res = await fetch(`/api/admin/users?page=${page}`, { headers: getAuthHeaders() });
+      if (res.ok) setUsers(await res.json());
+    } finally {
+      setIsLoading(false);
+    }
+  }, [page]);
+
+  useEffect(() => { refresh(); }, [refresh]);
+  return { users, isLoading, refresh };
+}
+
+// ─── setRole ──────────────────────────────────────────────────────────────────
+
+export async function setRole(userId: number, role: string): Promise<void> {
+  const res = await fetch(`/api/admin/users/${userId}/role`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+    body: JSON.stringify({ role }),
+  });
+  if (!res.ok) throw new Error('Failed to update role');
+}
+
+// ─── deleteUser ───────────────────────────────────────────────────────────────
+
+export async function deleteUser(userId: number): Promise<void> {
+  const res = await fetch(`/api/admin/users/${userId}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(),
+  });
+  if (!res.ok) throw new Error('Failed to delete user');
+}
+
+// ─── useStats ─────────────────────────────────────────────────────────────────
+
+export function useStats() {
+  const [stats, setStats] = useState<{ totalUsers: number; adminRoles: number } | null>(null);
+
+  useEffect(() => {
+    fetch('/api/admin/stats', { headers: getAuthHeaders() })
+      .then(r => r.json())
+      .then(setStats)
+      .catch(() => {});
+  }, []);
+
+  return stats;
+}
