@@ -16,6 +16,8 @@ import { readFile, writeFile, fileExists, readJSON, writeJSON } from '../utils/f
 
 const MARKER_START = '// STACKMOD_ROUTES_START';
 const MARKER_END = '// STACKMOD_ROUTES_END';
+const EARLY_MARKER_START = '// STACKMOD_EARLY_ROUTES_START';
+const EARLY_MARKER_END = '// STACKMOD_EARLY_ROUTES_END';
 
 // ─── Import injection ─────────────────────────────────────────────────────────
 
@@ -84,6 +86,14 @@ function findInjectionPoint(content: string): number {
     return content.length;
 }
 
+function findEarlyInjectionPoint(content: string): number {
+    const jsonMatch = content.match(/app\.use\s*\(\s*express\.json/);
+    if (jsonMatch?.index === undefined) return findInjectionPoint(content);
+
+    const lineStart = content.lastIndexOf('\n', jsonMatch.index);
+    return lineStart >= 0 ? lineStart + 1 : 0;
+}
+
 // ─── Route block injection ────────────────────────────────────────────────────
 
 /**
@@ -92,17 +102,26 @@ function findInjectionPoint(content: string): number {
  * If the marker block already exists, the new line is appended before MARKER_END.
  * If not, a new marker block is created at the best anchor point (before app.listen).
  */
-function injectRouteStatement(content: string, mount: string, importSymbol: string): string {
+function injectRouteStatement(
+    content: string,
+    mount: string,
+    importSymbol: string,
+    beforeBodyParser: boolean
+): string {
     const useLine = `app.use('${mount}', ${importSymbol});`;
+    const markerStart = beforeBodyParser ? EARLY_MARKER_START : MARKER_START;
+    const markerEnd = beforeBodyParser ? EARLY_MARKER_END : MARKER_END;
 
-    if (content.includes(MARKER_START)) {
+    if (content.includes(markerStart)) {
         // Marker block exists — insert before the end marker
-        return content.replace(MARKER_END, `${useLine}\n${MARKER_END}`);
+        return content.replace(markerEnd, `${useLine}\n${markerEnd}`);
     }
 
     // No marker yet — create one at the best anchor point
-    const insertAt = findInjectionPoint(content);
-    const markerBlock = `\n${MARKER_START}\n${useLine}\n${MARKER_END}\n`;
+    const insertAt = beforeBodyParser
+        ? findEarlyInjectionPoint(content)
+        : findInjectionPoint(content);
+    const markerBlock = `\n${markerStart}\n${useLine}\n${markerEnd}\n`;
 
     return content.slice(0, insertAt) + markerBlock + content.slice(insertAt);
 }
@@ -161,7 +180,8 @@ function injectExpressRouter(
     source: string,
     importSymbol: string,
     importPath: string,
-    mount: string
+    mount: string,
+    beforeBodyParser: boolean
 ): string {
     // ── Guard ──────────────────────────────────────────────────────────────────
     if (source.includes(importPath)) {
@@ -175,7 +195,7 @@ function injectExpressRouter(
     let result = injectImportStatement(source, importSymbol, importPath);
 
     // ── Phase 2: inject route into marker block ────────────────────────────────
-    result = injectRouteStatement(result, mount, importSymbol);
+    result = injectRouteStatement(result, mount, importSymbol, beforeBodyParser);
 
     return result;
 }
@@ -183,7 +203,7 @@ function injectExpressRouter(
 
 // ─── Package.json updater ────────────────────────────────────────────────────
 
-function addDependencyToPackageJson(rootDir: string, depName: string): void {
+function addDependencyToPackageJson(rootDir: string, depName: string, version: string): void {
     const pkgPath = path.resolve(rootDir, 'package.json');
     const pkg = readJSON<Record<string, unknown>>(pkgPath);
 
@@ -194,8 +214,7 @@ function addDependencyToPackageJson(rootDir: string, depName: string): void {
     const deps = pkg.dependencies as Record<string, string>;
     if (deps[depName]) return;  // already present, skip
 
-    // Use '*' as a placeholder version — user will run npm install
-    deps[depName] = '*';
+    deps[depName] = version;
     writeJSON(pkgPath, pkg);
 }
 
@@ -301,7 +320,8 @@ export async function applyPatchPlan(
                             original,
                             modOp.importSymbol,
                             modOp.importPath,
-                            modOp.mount
+                            modOp.mount,
+                            modOp.beforeBodyParser
                         );
                         writeFile(modOp.path, modified);
                     } else if (modOp.modification === 'replit_routes_inject') {
@@ -362,7 +382,7 @@ export async function applyPatchPlan(
                     const packagePath = path.resolve(profile.rootDir, 'package.json');
                     backupFileOnce(packagePath);
                     filesModified.add(packagePath);
-                    addDependencyToPackageJson(profile.rootDir, depOp.name);
+                    addDependencyToPackageJson(profile.rootDir, depOp.name, depOp.version);
                     break;
                 }
 

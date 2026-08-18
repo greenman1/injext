@@ -1,28 +1,35 @@
+import { timingSafeEqual } from 'node:crypto';
 import { Request, Response, NextFunction } from 'express';
 
 // ─── requireAdmin Middleware ──────────────────────────────────────────────────
-// Protects admin routes. Two auth methods are supported:
-//
-// 1. JWT role check (if add-auth is installed):
-//    req.user.role === 'admin'
-//
-// 2. X-Admin-Secret header fallback (works without add-auth):
+// Protects admin routes with either:
+// 1. An add-auth JWT whose signed role claim is "admin".
+// 2. A deployment-specific bootstrap/fallback secret:
 //    X-Admin-Secret: <value of ADMIN_SECRET env var>
 //
 // To set ADMIN_SECRET, add it to your .env file:
 //   ADMIN_SECRET=$(node -e 'console.log(require("crypto").randomBytes(32).toString("hex"))')
 
+function secretsMatch(provided: string | string[] | undefined, expected: string): boolean {
+  if (typeof provided !== 'string') return false;
+
+  const providedBytes = Buffer.from(provided, 'utf8');
+  const expectedBytes = Buffer.from(expected, 'utf8');
+  return (
+    providedBytes.length === expectedBytes.length &&
+    timingSafeEqual(providedBytes, expectedBytes)
+  );
+}
+
 export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
-  // Method 1: JWT user with admin role (add-auth must be applied first)
   const user = (req as any).user;
   if (user?.role === 'admin') {
     next();
     return;
   }
 
-  // Method 2: X-Admin-Secret header
   const secret = process.env.ADMIN_SECRET;
-  if (secret && req.headers['x-admin-secret'] === secret) {
+  if (secret && secretsMatch(req.headers['x-admin-secret'], secret)) {
     next();
     return;
   }

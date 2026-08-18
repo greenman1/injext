@@ -2,6 +2,8 @@
 
 Contributions are welcome through GitHub issues and pull requests.
 
+Read [the architecture guide](docs/ARCHITECTURE.md) for the engine and mutation contracts and [the vision document](docs/VISION.md) for the design questions the project is exploring.
+
 ## Development
 
 Requirements:

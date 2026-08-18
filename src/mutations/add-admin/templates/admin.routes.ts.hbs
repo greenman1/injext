@@ -5,18 +5,41 @@ const router = Router();
 router.use(requireAdmin);
 
 interface AdminUser {
-  id: number;
+  id: string;
   email: string;
-  role: string;
+  role: 'user' | 'admin';
   createdAt: Date;
 }
 
-// In-memory user store — populated by add-auth's in-memory store if available
-const adminUsers = new Map<number, AdminUser>();
-let nextId = 1;
+interface StoredAuthUser extends AdminUser {
+  password: string;
+}
 
-export function registerAdminUser(id: number, email: string, role = 'user'): void {
-  adminUsers.set(id, { id, email, role, createdAt: new Date() });
+const AUTH_USERS_KEY = Symbol.for('injext.auth.users');
+
+function getAuthUsers(): StoredAuthUser[] | undefined {
+  const candidate = (globalThis as any)[AUTH_USERS_KEY];
+  return Array.isArray(candidate) ? candidate as StoredAuthUser[] : undefined;
+}
+
+function toAdminUser(user: StoredAuthUser): AdminUser {
+  return {
+    id: user.id,
+    email: user.email,
+    role: user.role,
+    createdAt: user.createdAt,
+  };
+}
+
+const adminUsers = new Map<string, AdminUser>();
+
+export function registerAdminUser(
+  id: string | number,
+  email: string,
+  role: 'user' | 'admin' = 'user'
+): void {
+  const normalizedId = String(id);
+  adminUsers.set(normalizedId, { id: normalizedId, email, role, createdAt: new Date() });
 }
 
 // ─── GET /users ───────────────────────────────────────────────────────────────
@@ -24,14 +47,21 @@ export function registerAdminUser(id: number, email: string, role = 'user'): voi
 router.get('/users', (req: Request, res: Response) => {
   const page = Math.max(1, Number(req.query.page ?? 1));
   const limit = 50;
-  const users = Array.from(adminUsers.values()).slice((page - 1) * limit, page * limit);
+  const offset = (page - 1) * limit;
+  const authUsers = getAuthUsers();
+  const users = authUsers
+    ? authUsers.slice(offset, offset + limit).map(toAdminUser)
+    : Array.from(adminUsers.values()).slice(offset, offset + limit);
   res.json(users);
 });
 
 // ─── GET /users/:id ───────────────────────────────────────────────────────────
 
 router.get('/users/:id', (req: Request, res: Response) => {
-  const user = adminUsers.get(Number(req.params.id));
+  const id = req.params.id;
+  const authUsers = getAuthUsers();
+  const authUser = authUsers?.find(user => user.id === id);
+  const user = authUsers ? (authUser && toAdminUser(authUser)) : adminUsers.get(id);
   if (!user) { res.status(404).json({ error: 'User not found' }); return; }
   res.json(user);
 });
@@ -39,19 +69,41 @@ router.get('/users/:id', (req: Request, res: Response) => {
 // ─── PATCH /users/:id/role ────────────────────────────────────────────────────
 
 router.patch('/users/:id/role', (req: Request, res: Response) => {
-  const id = Number(req.params.id);
-  const user = adminUsers.get(id);
-  if (!user) { res.status(404).json({ error: 'User not found' }); return; }
+  const id = req.params.id;
   const { role } = req.body as { role?: string };
-  if (!role) { res.status(400).json({ error: 'role is required' }); return; }
-  adminUsers.set(id, { ...user, role });
+  if (role !== 'admin' && role !== 'user') {
+    res.status(400).json({ error: 'role must be "admin" or "user"' });
+    return;
+  }
+
+  const authUsers = getAuthUsers();
+  if (authUsers) {
+    const user = authUsers.find(candidate => candidate.id === id);
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+    user.role = role;
+  } else {
+    const user = adminUsers.get(id);
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+    adminUsers.set(id, { ...user, role });
+  }
   res.json({ id, role });
 });
 
 // ─── DELETE /users/:id ────────────────────────────────────────────────────────
 
 router.delete('/users/:id', (req: Request, res: Response) => {
-  const deleted = adminUsers.delete(Number(req.params.id));
+  const id = req.params.id;
+  const authUsers = getAuthUsers();
+  const authUserIndex = authUsers?.findIndex(user => user.id === id) ?? -1;
+  const deleted = authUsers
+    ? authUserIndex >= 0 && authUsers.splice(authUserIndex, 1).length === 1
+    : adminUsers.delete(id);
   if (!deleted) { res.status(404).json({ error: 'User not found' }); return; }
   res.json({ deleted: true });
 });
@@ -59,7 +111,7 @@ router.delete('/users/:id', (req: Request, res: Response) => {
 // ─── GET /stats ───────────────────────────────────────────────────────────────
 
 router.get('/stats', (_req: Request, res: Response) => {
-  const users = Array.from(adminUsers.values());
+  const users = getAuthUsers() ?? Array.from(adminUsers.values());
   res.json({
     totalUsers: users.length,
     adminRoles: users.filter(u => u.role === 'admin').length,

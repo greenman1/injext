@@ -83,10 +83,18 @@
         }
     ],
     "dependencies": [
-        "jsonwebtoken",
-        "bcryptjs",
-        "@types/jsonwebtoken",
-        "@types/bcryptjs"
+        {
+            "name": "jsonwebtoken",
+            "version": "^9.0.3"
+        },
+        {
+            "name": "bcryptjs",
+            "version": "^3.0.3"
+        },
+        {
+            "name": "@types/jsonwebtoken",
+            "version": "^9.0.10"
+        }
     ],
     "env": [
         "JWT_SECRET",

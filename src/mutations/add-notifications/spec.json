@@ -40,8 +40,14 @@
     }
   ],
   "dependencies": [
-    "nodemailer",
-    "@types/nodemailer"
+    {
+      "name": "nodemailer",
+      "version": "^9.0.5"
+    },
+    {
+      "name": "@types/nodemailer",
+      "version": "^8.0.1"
+    }
   ],
   "env": [
     "SMTP_HOST",

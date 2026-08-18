@@ -1,4 +1,4 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import Stripe from 'stripe';
 
 // ─── Stripe Webhook Handler ───────────────────────────────────────────────────
@@ -10,6 +10,15 @@ import Stripe from 'stripe';
 //   Events: checkout.session.completed, customer.subscription.updated,
 //            customer.subscription.deleted
 
+const DEFAULT_WEBHOOK_MAX_BYTES = 1024 * 1024;
+
+function webhookBodyLimit(): number {
+  const configured = Number(process.env.STRIPE_WEBHOOK_MAX_BYTES);
+  return Number.isSafeInteger(configured) && configured > 0
+    ? configured
+    : DEFAULT_WEBHOOK_MAX_BYTES;
+}
+
 export function createWebhookRouter(
   stripe: Stripe,
   onSubscriptionChange: (customerId: string, status: string, subscriptionId: string) => Promise<void>
@@ -19,22 +28,46 @@ export function createWebhookRouter(
   // Use raw body for signature verification — applied per-route
   router.post(
     '/',
-    (req: Request, res: Response, next) => {
-      // Parse raw body for this route only
-      let data = '';
-      req.setEncoding('utf8');
-      req.on('data', chunk => { data += chunk; });
+    (req: Request, res: Response, next: NextFunction) => {
+      const chunks: Buffer[] = [];
+      const maxBytes = webhookBodyLimit();
+      let receivedBytes = 0;
+      let tooLarge = false;
+
+      req.on('data', chunk => {
+        if (tooLarge) return;
+
+        const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+        receivedBytes += bytes.length;
+        if (receivedBytes > maxBytes) {
+          tooLarge = true;
+          chunks.length = 0;
+          return;
+        }
+        chunks.push(bytes);
+      });
       req.on('end', () => {
-        (req as any).rawBody = data;
+        if (tooLarge) {
+          res.status(413).json({ error: 'Webhook payload too large' });
+          return;
+        }
+
+        (req as any).rawBody = Buffer.concat(chunks, receivedBytes);
         next();
       });
+      req.on('error', next);
     },
     async (req: Request, res: Response) => {
-      const sig = req.headers['stripe-signature'] as string;
+      const sig = req.headers['stripe-signature'];
       const secret = process.env.STRIPE_WEBHOOK_SECRET;
 
       if (!secret) {
         res.status(500).json({ error: 'STRIPE_WEBHOOK_SECRET not configured' });
+        return;
+      }
+
+      if (typeof sig !== 'string') {
+        res.status(400).json({ error: 'Missing Stripe signature' });
         return;
       }
 
@@ -43,7 +76,7 @@ export function createWebhookRouter(
         event = stripe.webhooks.constructEvent((req as any).rawBody, sig, secret);
       } catch (err: any) {
         console.error('[billing webhook] Invalid signature:', err.message);
-        res.status(400).json({ error: `Webhook signature invalid: ${err.message}` });
+        res.status(400).json({ error: 'Webhook signature invalid' });
         return;
       }
 

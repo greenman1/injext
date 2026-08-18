@@ -62,26 +62,31 @@
     }
   ],
   "dependencies": [
-    "stripe"
+    {
+      "name": "stripe",
+      "version": "^22.5.0"
+    }
   ],
   "env": [
     "STRIPE_SECRET_KEY",
     "STRIPE_PUBLISHABLE_KEY",
     "STRIPE_WEBHOOK_SECRET",
+    "STRIPE_WEBHOOK_MAX_BYTES",
     "STRIPE_PRICE_ID"
   ],
   "entry_injection": [
     {
       "when": "replit-fullstack",
-      "type": "replit_routes",
+      "type": "express_router",
       "mount": "/api/billing",
       "import": "./billing.routes",
-      "targetFile": "{{serverDir}}/routes.ts"
+      "before_body_parser": true
     },
     {
       "type": "express_router",
       "mount": "/billing",
-      "import": "./billing.routes"
+      "import": "./billing.routes",
+      "before_body_parser": true
     }
   ]
 }

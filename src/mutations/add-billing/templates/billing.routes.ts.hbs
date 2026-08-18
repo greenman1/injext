@@ -1,4 +1,4 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, json } from 'express';
 import Stripe from 'stripe';
 import { createWebhookRouter } from './billing.webhook';
 
@@ -9,7 +9,7 @@ if (!stripeKey) {
   console.error('[billing] STRIPE_SECRET_KEY not set — billing endpoints will fail');
 }
 
-const stripe = new Stripe(stripeKey ?? 'not_configured', { apiVersion: '2024-06-20' });
+const stripe = new Stripe(stripeKey ?? 'not_configured');
 
 // In-memory subscription store
 const subscriptions = new Map<string, { status: string; customerId: string; subscriptionId?: string }>();
@@ -21,6 +21,7 @@ async function onSubscriptionChange(customerId: string, status: string, subscrip
 // ─── Webhook ──────────────────────────────────────────────────────────────────
 
 router.use('/webhook', createWebhookRouter(stripe, onSubscriptionChange));
+router.use(json());
 
 // ─── POST /checkout-session ───────────────────────────────────────────────────
 

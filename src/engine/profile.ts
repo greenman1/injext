@@ -41,6 +41,12 @@ export interface EntryInjection {
     mount: string;
     import: string;
     targetFile?: string;   // for replit_routes: file to inject into, e.g. "{{serverDir}}/routes.ts"
+    before_body_parser?: boolean; // for raw-body routes such as signed webhooks
+}
+
+export interface MutationDependency {
+    name: string;
+    version: string;
 }
 
 export interface MutationSpec {
@@ -49,7 +55,7 @@ export interface MutationSpec {
     description: string;
     files: MutationSpecFile[];
     file_injections?: FileInjectionSpec[];
-    dependencies: string[];
+    dependencies: Array<string | MutationDependency>;
     env: string[];
     entry_injection?: EntryInjection | EntryInjection[];
 }
@@ -69,11 +75,13 @@ export interface ModifyFileOp {
     mount: string;
     importPath: string;
     importSymbol: string;
+    beforeBodyParser: boolean;
 }
 
 export interface AddDependencyOp {
     type: 'add_dependency';
     name: string;
+    version: string;
 }
 
 export interface AddEnvOp {

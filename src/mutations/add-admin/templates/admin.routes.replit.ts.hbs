@@ -64,7 +64,19 @@ router.patch('/users/:id/role', async (req: Request, res: Response) => {
   try {
     const userId = Number(req.params.id);
     const { role } = req.body as { role?: string };
-    if (!role) { res.status(400).json({ error: 'role is required' }); return; }
+    if (role !== 'admin' && role !== 'user') {
+      res.status(400).json({ error: 'role must be "admin" or "user"' });
+      return;
+    }
+
+    if (authUsersTable) {
+      const [user] = await db.select().from(authUsersTable).where(eq(authUsersTable.id, userId)).limit(1);
+      if (!user) {
+        res.status(404).json({ error: 'User not found' });
+        return;
+      }
+      await db.update(authUsersTable).set({ role }).where(eq(authUsersTable.id, userId));
+    }
 
     const existing = await db.select().from(adminUserRoles).where(eq(adminUserRoles.userId, userId)).limit(1);
     if (existing.length > 0) {
