@@ -6,12 +6,12 @@
     "author": "greenman1",
     "repository": {
         "type": "git",
-        "url": "git+https://github.com/greenman1/new-without.git"
+        "url": "git+https://github.com/greenman1/injext.git"
     },
     "bugs": {
-        "url": "https://github.com/greenman1/new-without/issues"
+        "url": "https://github.com/greenman1/injext/issues"
     },
-    "homepage": "https://github.com/greenman1/new-without#readme",
+    "homepage": "https://github.com/greenman1/injext#readme",
     "keywords": [
         "codegen",
         "codemod",

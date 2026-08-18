@@ -4,7 +4,7 @@
 
 Do not open a public issue for a suspected vulnerability.
 
-Use [GitHub private vulnerability reporting](https://github.com/greenman1/new-without/security/advisories/new) and include the affected version, reproduction steps, impact, and any suggested mitigation. Please allow a reasonable remediation window before public disclosure.
+Use [GitHub private vulnerability reporting](https://github.com/greenman1/injext/security/advisories/new) and include the affected version, reproduction steps, impact, and any suggested mitigation. Please allow a reasonable remediation window before public disclosure.
 
 ## Supported versions
 
