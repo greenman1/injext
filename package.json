@@ -59,7 +59,7 @@
         "tar": "^7.5.22"
     },
     "devDependencies": {
-        "@types/handlebars": "^4.0.40",
+        "@types/handlebars": "^4.1.0",
         "@types/node": "^20.19.37",
         "@types/prompts": "^2.4.9",
         "ts-node": "^10.9.2",
