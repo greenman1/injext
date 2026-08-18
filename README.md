@@ -14,7 +14,7 @@ Injext explores a different boundary: define known classes of software change on
 
 ## Quick demo
 
-[▶ Watch Injext add authentication to a Replit app](./replit%20stackmod%20add%20auth.mp4)
+[![Watch Injext add authentication to a Replit app](https://img.youtube.com/vi/IIXZ1dTB6ro/maxresdefault.jpg)](https://youtu.be/IIXZ1dTB6ro)
 
 ## ⚠️ Project status — experimental
 
