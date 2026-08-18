@@ -12,6 +12,10 @@ AI coding agents are good at reasoning through unfamiliar work. They are also re
 
 Injext explores a different boundary: define known classes of software change once as inspectable mutation specifications, then compile and apply those definitions to an existing project without asking a model to regenerate the operation token by token.
 
+## Quick demo
+
+[▶ Watch Injext add authentication to a Replit app](./replit%20stackmod%20add%20auth.mp4)
+
 ## ⚠️ Project status — experimental
 
 **Injext is an architecture prototype and foundation for further development, not a production-ready system.** It is being open-sourced for developers to inspect, experiment with, extend, and build upon.
