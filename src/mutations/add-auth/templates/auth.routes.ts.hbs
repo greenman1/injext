@@ -10,9 +10,14 @@ interface StoredUser {
   id: string;
   email: string;
   password: string; // bcrypt hash
+  role: 'user' | 'admin';
+  createdAt: Date;
 }
 
-const users: StoredUser[] = [];
+const AUTH_USERS_KEY = Symbol.for('injext.auth.users');
+const users = (
+  (globalThis as any)[AUTH_USERS_KEY] ??= []
+) as StoredUser[];
 
 // ─── POST /register ───────────────────────────────────────────────────────────
 
@@ -34,9 +39,9 @@ router.post('/register', async (req: Request, res: Response) => {
     const passwordHash = await bcrypt.hash(password, salt);
     const id = `user_${Date.now()}`;
 
-    users.push({ id, email, password: passwordHash });
+    users.push({ id, email, password: passwordHash, role: 'user', createdAt: new Date() });
 
-    res.status(201).json({ id, email });
+    res.status(201).json({ id, email, role: 'user' });
   } catch (err) {
     res.status(500).json({ error: 'Registration failed' });
   }
@@ -74,9 +79,9 @@ router.post('/login', async (req: Request, res: Response) => {
     }
 
     const token = jwt.sign(
-      { userId: user.id, email: user.email },
+      { userId: user.id, email: user.email, role: user.role },
       secret,
-      { expiresIn: expiry } as jwt.SignOptions
+      { algorithm: 'HS256', expiresIn: expiry } as jwt.SignOptions
     );
 
     res.status(200).json({ token, expiresIn: expiry });
@@ -92,7 +97,7 @@ router.get('/me', (req: Request, res: Response) => {
     res.status(401).json({ error: 'Not authenticated' });
     return;
   }
-  res.json({ userId: req.user.userId, email: req.user.email });
+  res.json({ userId: req.user.userId, email: req.user.email, role: req.user.role });
 });
 
 export default router;

@@ -6,7 +6,7 @@ export default function AdminPage() {
   const { users, isLoading, refresh } = useUsers(page);
   const stats = useStats();
 
-  const handleRoleChange = async (userId: number, role: string) => {
+  const handleRoleChange = async (userId: string | number, role: string) => {
     try {
       await setRole(userId, role);
       refresh();
@@ -15,7 +15,7 @@ export default function AdminPage() {
     }
   };
 
-  const handleDelete = async (userId: number) => {
+  const handleDelete = async (userId: string | number) => {
     if (!confirm('Delete this user?')) return;
     try {
       await deleteUser(userId);

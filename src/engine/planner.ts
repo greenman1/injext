@@ -163,6 +163,7 @@ export function buildPatchPlan(
                     mount: resolvedMount,
                     importPath: resolvedImport,
                     importSymbol,
+                    beforeBodyParser: inj.before_body_parser ?? false,
                 };
                 operations.push(op);
             } else if (inj.type === 'replit_routes') {
@@ -179,6 +180,7 @@ export function buildPatchPlan(
                     mount: resolvedMount,
                     importPath: resolvedImport,
                     importSymbol,
+                    beforeBodyParser: false,
                 };
                 operations.push(op);
             }
@@ -215,7 +217,11 @@ export function buildPatchPlan(
 
     // ── Dependency operations ──────────────────────────────────────────────────
     for (const dep of spec.dependencies) {
-        const op: AddDependencyOp = { type: 'add_dependency', name: dep };
+        const op: AddDependencyOp = {
+            type: 'add_dependency',
+            name: typeof dep === 'string' ? dep : dep.name,
+            version: typeof dep === 'string' ? '*' : dep.version,
+        };
         operations.push(op);
     }
 
@@ -238,7 +244,7 @@ export function buildPatchPlan(
 
     const depsToAdd = operations
         .filter((o): o is AddDependencyOp => o.type === 'add_dependency')
-        .map(o => o.name);
+        .map(o => o.version === '*' ? o.name : `${o.name}@${o.version}`);
 
     const envToAdd = operations
         .filter((o): o is AddEnvOp => o.type === 'add_env')

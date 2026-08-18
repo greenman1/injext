@@ -1,7 +1,7 @@
 {
   "id": "add-admin",
   "version": "0.1.0",
-  "description": "Adds an admin dashboard with user management, role-based access, and system stats",
+  "description": "Adds an admin dashboard with role-based access, shared-secret bootstrap, user management, and system stats",
   "files": [
     {
       "path": "{{serverDir}}/admin.routes.ts",

@@ -6,6 +6,7 @@ import { Request, Response, NextFunction } from 'express';
 export interface AuthPayload {
   userId: string;
   email:  string;
+  role:   'user' | 'admin';
   iat?:   number;
   exp?:   number;
 }
@@ -44,7 +45,7 @@ export function verifyToken(req: Request, res: Response, next: NextFunction): vo
   }
 
   try {
-    const decoded = jwt.verify(token, secret) as AuthPayload;
+    const decoded = jwt.verify(token, secret, { algorithms: ['HS256'] }) as AuthPayload;
     req.user = decoded;
     next();
   } catch (err) {

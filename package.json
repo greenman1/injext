@@ -1,7 +1,7 @@
 {
     "name": "stackmod",
     "version": "0.1.0",
-    "description": "Injext: Code Mutation Engine for Replit",
+    "description": "A TypeScript mutation engine that turns repeatable software changes into structured, inspectable capabilities.",
     "license": "MIT",
     "author": "greenman1",
     "repository": {
@@ -16,8 +16,12 @@
         "codegen",
         "codemod",
         "cli",
+        "code-transformation",
+        "developer-tools",
         "injext",
         "mutation-compiler",
+        "ai-agents",
+        "automation",
         "replit",
         "scaffolding",
         "express",
@@ -30,7 +34,8 @@
     "files": [
         "dist",
         "bin",
-        "CHANGELOG.md"
+        "CHANGELOG.md",
+        "docs"
     ],
     "scripts": {
         "build": "node scripts/build.js",

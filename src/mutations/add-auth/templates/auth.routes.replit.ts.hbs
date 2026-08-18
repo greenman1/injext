@@ -30,9 +30,9 @@ router.post('/register', async (req: Request, res: Response) => {
     const [user] = await db
       .insert(authUsers)
       .values({ email, passwordHash })
-      .returning({ id: authUsers.id, email: authUsers.email });
+      .returning({ id: authUsers.id, email: authUsers.email, role: authUsers.role });
 
-    res.status(201).json({ id: user.id, email: user.email });
+    res.status(201).json({ id: user.id, email: user.email, role: user.role });
   } catch (err) {
     console.error('[auth] register error:', err);
     res.status(500).json({ error: 'Registration failed' });
@@ -70,10 +70,11 @@ router.post('/login', async (req: Request, res: Response) => {
       return;
     }
 
+    const role = user.role === 'admin' ? 'admin' : 'user';
     const token = jwt.sign(
-      { userId: String(user.id), email: user.email },
+      { userId: String(user.id), email: user.email, role },
       secret,
-      { expiresIn: expiry } as jwt.SignOptions
+      { algorithm: 'HS256', expiresIn: expiry } as jwt.SignOptions
     );
 
     res.status(200).json({ token, expiresIn: expiry });
@@ -90,7 +91,7 @@ router.get('/me', (req: Request, res: Response) => {
     res.status(401).json({ error: 'Not authenticated' });
     return;
   }
-  res.json({ userId: req.user.userId, email: req.user.email });
+  res.json({ userId: req.user.userId, email: req.user.email, role: req.user.role });
 });
 
 export default router;
