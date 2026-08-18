@@ -1,5 +1,9 @@
 # Injext
 
+[![CI](https://github.com/greenman1/injext/actions/workflows/ci.yml/badge.svg)](https://github.com/greenman1/injext/actions/workflows/ci.yml)
+[![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![Node.js >=20](https://img.shields.io/badge/node-%3E%3D20-339933?logo=node.js&logoColor=white)
+
 > A TypeScript mutation engine that turns repeatable software changes into structured, inspectable capabilities for developers and AI coding agents.
 
 **The premise:** coding agents should not have to reason through every known software operation from scratch.
@@ -104,8 +108,8 @@ The project is named Injext; the current npm package and CLI executable remain `
 Build and link the CLI from source:
 
 ```bash
-git clone https://github.com/greenman1/new-without.git
-cd new-without
+git clone https://github.com/greenman1/injext.git
+cd injext
 npm ci
 npm run build
 npm link
