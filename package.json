@@ -53,13 +53,13 @@
     "dependencies": {
         "chalk": "^4.1.2",
         "commander": "^11.1.0",
-        "fastify": "^5.12.0",
+        "fastify": "^5.12.1",
         "handlebars": "^4.7.9",
         "prompts": "^2.4.2",
         "tar": "^7.5.22"
     },
     "devDependencies": {
-        "@types/handlebars": "^4.0.40",
+        "@types/handlebars": "^4.1.0",
         "@types/node": "^20.19.37",
         "@types/prompts": "^2.4.9",
         "ts-node": "^10.9.2",
